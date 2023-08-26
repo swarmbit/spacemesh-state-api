@@ -1,0 +1,9 @@
+crawshaw.io/iox v0.0.0-20181124134642-c51c3df30797/go.mod h1:sXBiorCo8c46JlQV3oXPKINnZ8mcqnye1EkVkqsectk=
+github.com/cosmos/btcutil v1.0.5 h1:t+ZFcX77LpKtDBhjucvnOH8C2l2ioGsBNEQ3jef8xFk=
+github.com/cosmos/btcutil v1.0.5/go.mod h1:IyB7iuqZMJlthe2tkIFL33xPyzbFYP0XVdS8P5lUPis=
+github.com/go-llsqlite/llsqlite v0.0.0-20230612031458-a9e271fe723a h1:2GgRlm6BrV7CIOjjE/o7WJs6foe33AqCQC8bnl1RJQc=
+github.com/go-llsqlite/llsqlite v0.0.0-20230612031458-a9e271fe723a/go.mod h1:suaTfGNQ00ObHGOoHxPb8pkAki7jm0/ZkR2rcY9yF1s=
+github.com/mattn/go-sqlite3 v1.14.17 h1:mCRHCLDUBXgpKAqIKsaAaAsrAlbkeomtRFKXh2L6YIM=
+github.com/mattn/go-sqlite3 v1.14.17/go.mod h1:2eHXhiwb8IkHr+BDWZGa96P6+rkvnG63S2DGjv9HUNg=
+github.com/spacemeshos/go-scale v1.1.10/go.mod h1:TmYTorvilrhSZpqp51V6HWYtQPnWvBqOaF+GCWdnsgs=
+github.com/spacemeshos/go-spacemesh v1.1.2/go.mod h1:CPjba97x7NmokqiMT7ph3uKye30jI4V+c2CWgeNoYKE=
