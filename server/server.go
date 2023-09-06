@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
@@ -33,9 +34,14 @@ type Reward struct {
 	Timestamp      int64  `json:"timestamp"`
 }
 
+type Eligibility struct {
+	Count     uint32 `json:"count"`
+	SmesherId string `json:"smesherId"`
+}
+
 func StartServer() {
 
-	db, err := state.StartDB("<state.sql path>", 10)
+	db, err := state.StartDB("/Users/brunovale/dev/git/spacemesh/spacemesh-configs/custom-node/node-data/state.sql", 10)
 	if err != nil {
 		fmt.Print("Failed to open db")
 	}
@@ -142,6 +148,40 @@ func StartServer() {
 			c.Header("total", strconv.FormatInt(count, 10))
 			c.JSON(200, make([]*Reward, 0))
 		}
+	})
+
+	router.GET("/smesher/:smesherId/eligibility", func(c *gin.Context) {
+		nodeIdStr := c.Param("smesherId")
+		nodeBytes, err := hex.DecodeString(nodeIdStr)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status": "Internal Error",
+				"error":  "Failed parse smesher id",
+			})
+		}
+
+		nodeID := types.BytesToNodeID(nodeBytes)
+		epochStr := c.DefaultQuery("epoch", "2")
+		epoch, err := strconv.Atoi(epochStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "epoch must be a valid integer",
+			})
+			return
+		}
+
+		count, err := state.GetEligibilityCount(db, nodeID, types.EpochID(epoch))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status": "Internal Error",
+				"error":  "Failed get eligibility",
+			})
+			return
+		}
+		c.JSON(200, &Eligibility{
+			Count:     count,
+			SmesherId: nodeIdStr,
+		})
 	})
 
 	server := &http.Server{

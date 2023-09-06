@@ -1,8 +1,13 @@
 package state
 
 import (
+	"fmt"
+
 	"github.com/spacemeshos/go-spacemesh/common/types"
+	"github.com/spacemeshos/go-spacemesh/proposals/util"
 	"github.com/spacemeshos/go-spacemesh/sql"
+	"github.com/spacemeshos/go-spacemesh/sql/atxs"
+	"github.com/spacemeshos/go-spacemesh/tortoise"
 )
 
 type SmesherReward struct {
@@ -21,6 +26,19 @@ func CountTotalRewards(db sql.Executor, coinbase types.Address) (count int64, er
 
 		}, func(stmt *sql.Statement) bool {
 			count = stmt.ColumnInt64(0)
+			return true
+		})
+	return
+}
+
+func GetTotalWeight(db sql.Executor, epoch types.EpochID) (total uint64, err error) {
+	_, err = db.Exec("select tick_count, effective_num_units from atxs where epoch = ?1;",
+		func(stmt *sql.Statement) {
+			stmt.BindInt64(1, int64(epoch))
+		}, func(stmt *sql.Statement) bool {
+			tickCount := uint64(stmt.ColumnInt64(0))
+			effectiveNumUnits := uint64(stmt.ColumnInt64(1))
+			total += GetATXWeight(effectiveNumUnits, tickCount)
 			return true
 		})
 	return
@@ -53,6 +71,45 @@ func ListRewardsPaginated(db sql.Executor, coinbase types.Address, offset int64,
 		})
 	return
 }
+
+func GetATXWeight(numUnits, tickCount uint64) uint64 {
+	return safeMul(numUnits, tickCount)
+}
+
+func safeMul(a, b uint64) uint64 {
+	c := a * b
+	if a > 1 && b > 1 && c/b != a {
+		panic("uint64 overflow")
+	}
+	return c
+}
+
+func GetEligibilityCount(db sql.Executor, nodeID types.NodeID, epoch types.EpochID) (uint32, error) {
+
+	defaultConfig := tortoise.DefaultConfig()
+	layerSize := defaultConfig.LayerSize
+	minimalWeight := defaultConfig.MinimalActiveSetWeight
+
+	atx, err := atxs.GetByEpochAndNodeID(db, epoch, nodeID)
+	if err != nil {
+		fmt.Printf("Failed to get atx for node, error: %s ", err.Error())
+		return 0, err
+	}
+
+	atxWeight := atx.GetWeight()
+
+	total, err := GetTotalWeight(db, epoch)
+	if err != nil {
+		fmt.Printf("Failed to get total weight, error: %s ", err.Error())
+		return 0, err
+	}
+
+	// fmt.Printf("weight %d, mininal %d, total %d, layerSize %d, layersPerEpoch %d \n", atxWeight, minimalWeight, total, layerSize, 4032)
+	slots, err := util.GetNumEligibleSlots(atxWeight, minimalWeight, total, layerSize, 4032)
+	return uint32(slots), err
+}
+
+//
 
 func GetTotalCommittedForEpoch(db sql.Executor, epoch types.EpochID) (sum int64, err error) {
 	_, err = db.Exec(`select sum(effective_num_units) from atxs left join identities using(pubkey) 
