@@ -44,6 +44,17 @@ func GetTotalWeight(db sql.Executor, epoch types.EpochID) (total uint64, err err
 	return
 }
 
+func GetLatestAVGLayerReward(db sql.Executor) (uint64, error) {
+	var sumRewards uint64
+	_, err := db.Exec("select DISTINCT(layer), layer_reward from rewards_atxs ORDER By layer DESC LIMIT 20;",
+		func(stmt *sql.Statement) {
+		}, func(stmt *sql.Statement) bool {
+			sumRewards += uint64(stmt.ColumnInt64(1))
+			return true
+		})
+	return sumRewards / 20, err
+}
+
 // List rewards from all layers for the coinbase address.
 func ListRewardsPaginated(db sql.Executor, coinbase types.Address, offset int64, limit int64) (rst []*SmesherReward, err error) {
 	_, err = db.Exec("select r.layer, r.total_reward, r.layer_reward, a.id, a.pubkey  from rewards_atxs r left join atxs a ON r.atx_id = a.id where r.coinbase = ?1 order by layer limit ?2 offset ?3;",

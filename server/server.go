@@ -35,8 +35,9 @@ type Reward struct {
 }
 
 type Eligibility struct {
-	Count     uint32 `json:"count"`
-	SmesherId string `json:"smesherId"`
+	Count            uint32 `json:"count"`
+	SmesherId        string `json:"smesherId"`
+	PredictedRewards uint64 `json:"predictedRewards"`
 }
 
 func StartServer() {
@@ -178,9 +179,19 @@ func StartServer() {
 			})
 			return
 		}
+
+		predictedRewards, err := state.GetLatestAVGLayerReward(db)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status": "Internal Error",
+				"error":  "Failed get predicted rewards",
+			})
+			return
+		}
 		c.JSON(200, &Eligibility{
-			Count:     count,
-			SmesherId: nodeIdStr,
+			Count:            count,
+			SmesherId:        nodeIdStr,
+			PredictedRewards: predictedRewards * uint64(count),
 		})
 	})
 
