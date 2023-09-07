@@ -1,4 +1,4 @@
-module github.com/swarmbit/spacemesh-db-connector
+module github.com/swarmbit/spacemesh-state-api
 
 go 1.20
 
