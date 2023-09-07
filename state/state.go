@@ -44,6 +44,18 @@ func (s *State) CountTotalRewards(coinbase sTypes.Address) (count int64, err err
 	return
 }
 
+func (s *State) SumRewards(coinbase sTypes.Address) (count int64, err error) {
+	_, err = s.DB.Exec("select sum(total_reward) from rewards_atxs where coinbase = ?1;",
+		func(stmt *sql.Statement) {
+			stmt.BindBytes(1, coinbase[:])
+
+		}, func(stmt *sql.Statement) bool {
+			count = stmt.ColumnInt64(0)
+			return true
+		})
+	return
+}
+
 func getTotalWeight(db sql.Executor, epoch sTypes.EpochID) (total uint64, err error) {
 	_, err = db.Exec("select tick_count, effective_num_units from atxs where epoch = ?1;",
 		func(stmt *sql.Statement) {
@@ -55,6 +67,15 @@ func getTotalWeight(db sql.Executor, epoch sTypes.EpochID) (total uint64, err er
 			return true
 		})
 	return
+}
+
+func (s *State) GetCurrentEpoch() (sTypes.EpochID, sTypes.LayerID, error) {
+	currentLayer, err := layers.GetProcessed(s.DB)
+	if err != nil {
+		fmt.Printf("Failed to get current layer, error: %s ", err.Error())
+		return sTypes.EpochID(0), currentLayer, err
+	}
+	return GetEpoch(currentLayer), currentLayer, err
 }
 
 func (s *State) GetLatestAVGLayerReward() (uint64, error) {
@@ -180,4 +201,44 @@ func (s *State) GetTotalCommittedForEpoch(epoch sTypes.EpochID) (sum int64, err 
 			return true
 		})
 	return
+}
+
+func (s *State) GetCirculatingSupply() (int64, error) {
+	var circulatingSupply int64
+	_, err := s.DB.Exec(`WITH LatestBalanceChanges AS (
+				SELECT address, MAX(layer_updated) as MaxLayerUpdated
+				FROM accounts
+				GROUP BY address
+			),
+			LatestBalances AS (
+				SELECT a.address, a.balance
+				FROM accounts a
+				JOIN LatestBalanceChanges l ON a.address = l.address AND a.layer_updated = l.MaxLayerUpdated
+			)
+			SELECT SUM(balance) as TotalLatestBalance
+			FROM LatestBalances;`,
+		func(stmt *sql.Statement) {
+		}, func(stmt *sql.Statement) bool {
+			circulatingSupply = stmt.ColumnInt64(0)
+			return true
+		})
+	if err != nil {
+		fmt.Printf("Failed to get total balances, error: %s ", err.Error())
+		return 0, err
+	}
+	return circulatingSupply - 150000000000000000, nil
+}
+
+func (s *State) GetNumberOfAccounts() (sum int64, err error) {
+	_, err = s.DB.Exec(`select count(DISTINCT(address)) from accounts;`,
+		func(stmt *sql.Statement) {
+		}, func(stmt *sql.Statement) bool {
+			sum = stmt.ColumnInt64(0)
+			return true
+		})
+	return
+}
+
+func (s *State) GetHighestAtx() (sTypes.ATXID, error) {
+	return atxs.GetIDWithMaxHeight(s.DB, sTypes.EmptyNodeID)
 }

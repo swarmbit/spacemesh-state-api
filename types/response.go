@@ -21,3 +21,15 @@ type Eligibility struct {
 	SmesherId        string `json:"smesherId"`
 	PredictedRewards uint64 `json:"predictedRewards"`
 }
+
+type HigestAtx struct {
+	AtxHex    string `json:"atxHex"`
+	AtxBase64 string `json:"atxBase64"`
+}
+
+type NetworkInfo struct {
+	Epoch             uint32 `json:"epoch"`
+	TotalCommited     int64  `json:"totalCommited"`
+	CirculatingSupply int64  `json:"circulatingSupply"`
+	TotalAccounts     int64  `json:"totalAccounts"`
+}

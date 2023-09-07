@@ -15,6 +15,7 @@ func StartServer() {
 
 	state := state.NewState()
 
+	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 	route.AddRoutes(state, router)
 
