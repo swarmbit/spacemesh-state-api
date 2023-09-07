@@ -2,17 +2,22 @@ package state
 
 import (
 	"fmt"
+	"sync"
 
 	sTypes "github.com/spacemeshos/go-spacemesh/common/types"
 	"github.com/spacemeshos/go-spacemesh/proposals/util"
 	"github.com/spacemeshos/go-spacemesh/sql"
 	"github.com/spacemeshos/go-spacemesh/sql/atxs"
+	"github.com/spacemeshos/go-spacemesh/sql/layers"
 	"github.com/spacemeshos/go-spacemesh/tortoise"
+	"github.com/swarmbit/spacemesh-state-api/config"
 	"github.com/swarmbit/spacemesh-state-api/types"
 )
 
 type State struct {
-	DB sql.Executor
+	DB                sql.Executor
+	epochsTotalWeight *sync.Map
+	avgRewards        *sync.Map
 }
 
 func NewState() *State {
@@ -21,7 +26,9 @@ func NewState() *State {
 		fmt.Print("Failed to open db")
 	}
 	return &State{
-		DB: db,
+		DB:                db,
+		epochsTotalWeight: &sync.Map{},
+		avgRewards:        &sync.Map{},
 	}
 }
 
@@ -51,14 +58,33 @@ func getTotalWeight(db sql.Executor, epoch sTypes.EpochID) (total uint64, err er
 }
 
 func (s *State) GetLatestAVGLayerReward() (uint64, error) {
-	var sumRewards uint64
-	_, err := s.DB.Exec("select DISTINCT(layer), layer_reward from rewards_atxs ORDER By layer DESC LIMIT 2000;",
-		func(stmt *sql.Statement) {
-		}, func(stmt *sql.Statement) bool {
-			sumRewards += uint64(stmt.ColumnInt64(1))
-			return true
-		})
-	return sumRewards / 2000, err
+
+	var rewardsAvg uint64
+	currentLayer, err := layers.GetProcessed(s.DB)
+	if err != nil {
+		fmt.Printf("Failed to get current layer, error: %s ", err.Error())
+		return 0, err
+	}
+
+	avgCached, exist := s.avgRewards.Load(currentLayer.Uint32())
+	if !exist {
+		var sumRewards uint64
+		_, err := s.DB.Exec("select DISTINCT(layer), layer_reward from rewards_atxs ORDER By layer DESC LIMIT 2000;",
+			func(stmt *sql.Statement) {
+			}, func(stmt *sql.Statement) bool {
+				sumRewards += uint64(stmt.ColumnInt64(1))
+				return true
+			})
+		if err != nil {
+			fmt.Printf("Failed to calculate AVG, error: %s ", err.Error())
+			return 0, err
+		}
+		rewardsAvg = sumRewards / 2000
+		result, _ := s.avgRewards.LoadOrStore(currentLayer.Uint32(), rewardsAvg)
+		avgCached = result.(uint64)
+	}
+
+	return avgCached.(uint64), nil
 }
 
 // List rewards from all layers for the coinbase address.
@@ -101,28 +127,47 @@ func safeMul(a, b uint64) uint64 {
 	return c
 }
 
-func (s *State) GetEligibilityCount(nodeID sTypes.NodeID, epoch sTypes.EpochID) (uint32, error) {
+func (s *State) GetEligibilityCount(nodeID sTypes.NodeID) (int32, error) {
 
 	defaultConfig := tortoise.DefaultConfig()
 	layerSize := defaultConfig.LayerSize
 	minimalWeight := defaultConfig.MinimalActiveSetWeight
 
+	currentLayer, err := layers.GetProcessed(s.DB)
+	if err != nil {
+		fmt.Printf("Failed to get current layer, error: %s ", err.Error())
+		return 0, err
+	}
+
+	epoch := GetEpoch(currentLayer) - 1
+
 	atx, err := atxs.GetByEpochAndNodeID(s.DB, epoch, nodeID)
 	if err != nil {
 		fmt.Printf("Failed to get atx for node, error: %s ", err.Error())
+		if atx == nil {
+			return -1, err
+		}
 		return 0, err
 	}
 
 	atxWeight := atx.GetWeight()
 
-	total, err := getTotalWeight(s.DB, epoch)
-	if err != nil {
-		fmt.Printf("Failed to get total weight, error: %s ", err.Error())
-		return 0, err
+	totalCached, exist := s.epochsTotalWeight.Load(epoch.Uint32())
+	if !exist {
+		total, err := getTotalWeight(s.DB, epoch)
+		if err != nil {
+			fmt.Printf("Failed to get total weight, error: %s ", err.Error())
+			return 0, err
+		}
+		totalCached, _ = s.epochsTotalWeight.LoadOrStore(epoch.Uint32(), total)
 	}
 
-	slots, err := util.GetNumEligibleSlots(atxWeight, minimalWeight, total, layerSize, 4032)
-	return uint32(slots), err
+	slots, err := util.GetNumEligibleSlots(atxWeight, minimalWeight, totalCached.(uint64), layerSize, 4032)
+	return int32(slots), err
+}
+
+func GetEpoch(l sTypes.LayerID) sTypes.EpochID {
+	return sTypes.EpochID(l.Uint32() / config.LayersPerEpoch)
 }
 
 func (s *State) GetTotalCommittedForEpoch(epoch sTypes.EpochID) (sum int64, err error) {

@@ -17,7 +17,7 @@ type Reward struct {
 }
 
 type Eligibility struct {
-	Count            uint32 `json:"count"`
+	Count            int32  `json:"count"`
 	SmesherId        string `json:"smesherId"`
 	PredictedRewards uint64 `json:"predictedRewards"`
 }

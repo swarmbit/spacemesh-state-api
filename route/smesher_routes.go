@@ -3,7 +3,6 @@ package route
 import (
 	"encoding/hex"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	sTypes "github.com/spacemeshos/go-spacemesh/common/types"
@@ -32,19 +31,19 @@ func (s *SmesherRoutes) GetSmesherEligibility(c *gin.Context) {
 	}
 
 	nodeID := sTypes.BytesToNodeID(nodeBytes)
-	epochStr := c.DefaultQuery("epoch", "2")
-	epoch, err := strconv.Atoi(epochStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "epoch must be a valid integer",
+
+	count, err := s.state.GetEligibilityCount(nodeID)
+	if err != nil && count == -1 {
+		c.JSON(http.StatusNotFound, gin.H{
+			"status": "Smesher not found for current epoch",
+			"error":  "Failed get eligibility",
 		})
 		return
 	}
 
-	count, err := s.state.GetEligibilityCount(nodeID, sTypes.EpochID(epoch))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"status": "Internal Error",
+			"status": "Internal server error",
 			"error":  "Failed get eligibility",
 		})
 		return
