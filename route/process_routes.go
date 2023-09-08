@@ -18,12 +18,16 @@ func AddRoutes(state *state.State, router *gin.Engine) {
 		accountRoutes.GetAccountRewards(c)
 	})
 
-	router.GET("/smesher/:smesherId/eligibility", func(c *gin.Context) {
-		smesherRoutes.GetSmesherEligibility(c)
+	router.GET("/account/:accountAddress/rewards/details", func(c *gin.Context) {
+		accountRoutes.GetAccountRewardsDetails(c)
 	})
 
-	router.GET("/network/higestatx", func(c *gin.Context) {
-		networkRoutes.GetHighestAtx(c)
+	router.GET("/account/:accountAddress/rewards/eligibility", func(c *gin.Context) {
+		accountRoutes.GetAccountRewardsEligibilities(c)
+	})
+
+	router.GET("/smesher/:smesherId/eligibility", func(c *gin.Context) {
+		smesherRoutes.GetSmesherEligibility(c)
 	})
 
 	router.GET("/network/info", func(c *gin.Context) {

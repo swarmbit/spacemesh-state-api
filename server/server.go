@@ -29,6 +29,7 @@ func StartServer() {
 
 	go func() {
 		<-quit
+		state.DBInstance.Close()
 		log.Println("receive interrupt signal")
 		if err := server.Close(); err != nil {
 			log.Fatal("Server Close:", err)

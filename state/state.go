@@ -16,17 +16,19 @@ import (
 
 type State struct {
 	DB                sql.Executor
+	DBInstance        *sql.Database
 	epochsTotalWeight *sync.Map
 	avgRewards        *sync.Map
 }
 
 func NewState() *State {
-	db, err := StartDB("/Users/brunovale/dev/git/spacemesh/spacemesh-configs/custom-node/node-data/state.sql", 10)
+	db, err := StartDB("/spacemesh/storage/node-data/state.sql", 1)
 	if err != nil {
 		fmt.Print("Failed to open db")
 	}
 	return &State{
 		DB:                db,
+		DBInstance:        db,
 		epochsTotalWeight: &sync.Map{},
 		avgRewards:        &sync.Map{},
 	}
@@ -44,11 +46,41 @@ func (s *State) CountTotalRewards(coinbase sTypes.Address) (count int64, err err
 	return
 }
 
+func (s *State) CountTotalRewardsEpoch(coinbase sTypes.Address, epoch sTypes.EpochID) (count int64, err error) {
+	firstLayer := uint64(epoch) * config.LayersPerEpoch
+	lastLayer := firstLayer + config.LayersPerEpoch - 1
+	_, err = s.DB.Exec("select count(coinbase) from rewards_atxs where coinbase = ?1 AND layer >= ?2 AND layer <= ?3;",
+		func(stmt *sql.Statement) {
+			stmt.BindBytes(1, coinbase[:])
+			stmt.BindInt64(2, int64(firstLayer))
+			stmt.BindInt64(3, int64(lastLayer))
+		}, func(stmt *sql.Statement) bool {
+			count = stmt.ColumnInt64(0)
+			return true
+		})
+	return
+}
+
 func (s *State) SumRewards(coinbase sTypes.Address) (count int64, err error) {
 	_, err = s.DB.Exec("select sum(total_reward) from rewards_atxs where coinbase = ?1;",
 		func(stmt *sql.Statement) {
 			stmt.BindBytes(1, coinbase[:])
 
+		}, func(stmt *sql.Statement) bool {
+			count = stmt.ColumnInt64(0)
+			return true
+		})
+	return
+}
+
+func (s *State) SumRewardsEpoch(coinbase sTypes.Address, epoch sTypes.EpochID) (count int64, err error) {
+	firstLayer := uint64(epoch) * config.LayersPerEpoch
+	lastLayer := firstLayer + config.LayersPerEpoch - 1
+	_, err = s.DB.Exec("select sum(total_reward) from rewards_atxs where coinbase = ?1 AND layer >= ?2 AND layer <= ?3;",
+		func(stmt *sql.Statement) {
+			stmt.BindBytes(1, coinbase[:])
+			stmt.BindInt64(2, int64(firstLayer))
+			stmt.BindInt64(3, int64(lastLayer))
 		}, func(stmt *sql.Statement) bool {
 			count = stmt.ColumnInt64(0)
 			return true
@@ -175,6 +207,7 @@ func (s *State) GetEligibilityCount(nodeID sTypes.NodeID) (int32, error) {
 
 	totalCached, exist := s.epochsTotalWeight.Load(epoch.Uint32())
 	if !exist {
+		println("Load total cached")
 		total, err := getTotalWeight(s.DB, epoch)
 		if err != nil {
 			fmt.Printf("Failed to get total weight, error: %s ", err.Error())
@@ -234,6 +267,36 @@ func (s *State) GetNumberOfAccounts() (sum int64, err error) {
 		func(stmt *sql.Statement) {
 		}, func(stmt *sql.Statement) bool {
 			sum = stmt.ColumnInt64(0)
+			return true
+		})
+	return
+}
+
+func (s *State) GetActiveAtxCount(epoch sTypes.EpochID) (count int64, err error) {
+	_, err = s.DB.Exec(`select count(id) from atxs where epoch = ?1;`,
+		func(stmt *sql.Statement) {
+			stmt.BindInt64(1, int64(epoch))
+		}, func(stmt *sql.Statement) bool {
+			count = stmt.ColumnInt64(0)
+			return true
+		})
+	return
+}
+
+func (s *State) GetActiveAtxPerAddress(epoch sTypes.EpochID, coinbase sTypes.Address) (smeshers []*types.Smesher, err error) {
+	_, err = s.DB.Exec(`select pubkey, effective_num_units from atxs where epoch = ?1 and coinbase = ?2;`,
+		func(stmt *sql.Statement) {
+			stmt.BindInt64(1, int64(epoch))
+			stmt.BindBytes(2, coinbase[:])
+		}, func(stmt *sql.Statement) bool {
+			var nodeID sTypes.NodeID
+			stmt.ColumnBytes(0, nodeID[:])
+			numUnits := stmt.ColumnInt64(1)
+			smeshers = append(smeshers, &types.Smesher{
+				NodeID:            nodeID,
+				Coinbase:          coinbase,
+				EffectiveNumUnits: numUnits,
+			})
 			return true
 		})
 	return

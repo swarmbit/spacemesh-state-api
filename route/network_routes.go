@@ -4,6 +4,8 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/spacemeshos/go-spacemesh/sql"
@@ -11,71 +13,79 @@ import (
 	"github.com/swarmbit/spacemesh-state-api/types"
 )
 
+const INFO_KEY = "info"
+
 type NetworkRoutes struct {
-	state *state.State
-	db    sql.Executor
+	state       *state.State
+	db          sql.Executor
+	networkInfo *sync.Map
 }
 
 func NewNetworkRoutes(state *state.State) *NetworkRoutes {
-	return &NetworkRoutes{
-		state: state,
-		db:    state.DB,
+	routes := &NetworkRoutes{
+		state:       state,
+		db:          state.DB,
+		networkInfo: &sync.Map{},
 	}
-}
-
-func (n *NetworkRoutes) GetHighestAtx(c *gin.Context) {
-	highest, err := n.state.GetHighestAtx()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status": "Internal Error",
-			"error":  "Failed to get higest ATX",
-		})
-		return
-	}
-	c.JSON(200, &types.HigestAtx{
-		AtxHex:    hex.EncodeToString(highest.Bytes()),
-		AtxBase64: base64.StdEncoding.EncodeToString(highest.Bytes()),
-	})
+	routes.fetchNetworkInfo()
+	routes.periodicNetworkInfoFetch()
+	return routes
 }
 
 func (n *NetworkRoutes) GetInfo(c *gin.Context) {
-
-	epoch, _, err := n.state.GetCurrentEpoch()
-	if err != nil {
+	networkInfo, exists := n.networkInfo.Load(INFO_KEY)
+	if !exists {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status": "Internal Error",
-			"error":  "Failed to get current epoch",
+			"error":  "Failed to fetch network info",
 		})
 		return
 	}
-	totalCommited, err := n.state.GetTotalCommittedForEpoch(epoch)
+	c.JSON(200, networkInfo)
+}
+
+func (n *NetworkRoutes) periodicNetworkInfoFetch() {
+	ticker := time.NewTicker(60 * time.Second)
+	go func() {
+		for range ticker.C {
+			n.fetchNetworkInfo()
+		}
+	}()
+}
+
+func (n *NetworkRoutes) fetchNetworkInfo() {
+	epoch, _, err := n.state.GetCurrentEpoch()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status": "Internal Error",
-			"error":  "Failed to get totalCommited",
-		})
+		return
+	}
+	highest, err := n.state.GetHighestAtx()
+	if err != nil {
+		return
+	}
+	effectiveUnitsCommited, err := n.state.GetTotalCommittedForEpoch(epoch - 1)
+	if err != nil {
 		return
 	}
 	circulatingSupply, err := n.state.GetCirculatingSupply()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status": "Internal Error",
-			"error":  "Failed to get circulating supply",
-		})
 		return
 	}
 	totalAccounts, err := n.state.GetNumberOfAccounts()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status": "Internal Error",
-			"error":  "Failed to get number of accounts",
-		})
 		return
 	}
-	c.JSON(200, &types.NetworkInfo{
-		Epoch:             epoch.Uint32(),
-		TotalCommited:     totalCommited,
-		CirculatingSupply: circulatingSupply,
-		TotalAccounts:     totalAccounts,
+	totalActiveSmeshers, err := n.state.GetActiveAtxCount(epoch - 1)
+	if err != nil {
+		return
+	}
+
+	n.networkInfo.Store(INFO_KEY, &types.NetworkInfo{
+		Epoch:                  epoch.Uint32(),
+		EffectiveUnitsCommited: effectiveUnitsCommited,
+		CirculatingSupply:      circulatingSupply,
+		TotalAccounts:          totalAccounts,
+		AtxHex:                 hex.EncodeToString(highest.Bytes()),
+		AtxBase64:              base64.StdEncoding.EncodeToString(highest.Bytes()),
+		TotalActiveSmeshers:    totalActiveSmeshers,
 	})
 }

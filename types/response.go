@@ -16,20 +16,26 @@ type Reward struct {
 	Timestamp      int64  `json:"timestamp"`
 }
 
-type Eligibility struct {
-	Count            int32  `json:"count"`
-	SmesherId        string `json:"smesherId"`
-	PredictedRewards uint64 `json:"predictedRewards"`
+type RewardDetails struct {
+	TotalSum                 int64 `json:"totalSum"`
+	CurrentEpoch             int64 `json:"currentEpoch"`
+	CurrentEpochRewardsSum   int64 `json:"currentEpochRewardsSum"`
+	CurrentEpochRewardsCount int64 `json:"currentEpochRewardsCount"`
 }
 
-type HigestAtx struct {
-	AtxHex    string `json:"atxHex"`
-	AtxBase64 string `json:"atxBase64"`
+type Eligibility struct {
+	Count             int32  `json:"count"`
+	SmesherId         string `json:"smesherId"`
+	EffectiveNumUnits int64  `json:"effectiveNumUnits"`
+	PredictedRewards  uint64 `json:"predictedRewards"`
 }
 
 type NetworkInfo struct {
-	Epoch             uint32 `json:"epoch"`
-	TotalCommited     int64  `json:"totalCommited"`
-	CirculatingSupply int64  `json:"circulatingSupply"`
-	TotalAccounts     int64  `json:"totalAccounts"`
+	Epoch                  uint32 `json:"epoch"`
+	EffectiveUnitsCommited int64  `json:"effectiveUnitsCommited"`
+	CirculatingSupply      int64  `json:"circulatingSupply"`
+	TotalAccounts          int64  `json:"totalAccounts"`
+	TotalActiveSmeshers    int64  `json:"totalActiveSmeshers"`
+	AtxHex                 string `json:"atxHex"`
+	AtxBase64              string `json:"atxBase64"`
 }

@@ -10,3 +10,9 @@ type SmesherReward struct {
 	AtxID       types.ATXID
 	NodeID      types.NodeID
 }
+
+type Smesher struct {
+	Coinbase          types.Address
+	NodeID            types.NodeID
+	EffectiveNumUnits int64
+}
