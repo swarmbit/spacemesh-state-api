@@ -54,7 +54,7 @@ func (n *NetworkRoutes) periodicNetworkInfoFetch() {
 }
 
 func (n *NetworkRoutes) fetchNetworkInfo() {
-	epoch, _, err := n.state.GetCurrentEpoch()
+	epoch, layer, err := n.state.GetCurrentEpoch()
 	if err != nil {
 		return
 	}
@@ -81,6 +81,7 @@ func (n *NetworkRoutes) fetchNetworkInfo() {
 
 	n.networkInfo.Store(INFO_KEY, &types.NetworkInfo{
 		Epoch:                  epoch.Uint32(),
+		Layer:                  int64(layer),
 		EffectiveUnitsCommited: effectiveUnitsCommited,
 		CirculatingSupply:      circulatingSupply,
 		TotalAccounts:          totalAccounts,

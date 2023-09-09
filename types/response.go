@@ -32,6 +32,7 @@ type Eligibility struct {
 
 type NetworkInfo struct {
 	Epoch                  uint32 `json:"epoch"`
+	Layer                  int64  `json:"layer"`
 	EffectiveUnitsCommited int64  `json:"effectiveUnitsCommited"`
 	CirculatingSupply      int64  `json:"circulatingSupply"`
 	TotalAccounts          int64  `json:"totalAccounts"`
