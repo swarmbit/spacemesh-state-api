@@ -51,7 +51,7 @@ func (s *SmesherRoutes) GetSmesherEligibility(c *gin.Context) {
 		return
 	}
 
-	atx, err := atxs.GetByEpochAndNodeID(s.state.DB, currentEpoch, nodeID)
+	atx, err := atxs.GetByEpochAndNodeID(s.state.DB, currentEpoch-1, nodeID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status": "Internal Error",
