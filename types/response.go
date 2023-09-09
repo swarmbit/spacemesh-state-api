@@ -24,6 +24,7 @@ type RewardDetails struct {
 }
 
 type Eligibility struct {
+	Address           string `json:"address"`
 	Count             int32  `json:"count"`
 	SmesherId         string `json:"smesherId"`
 	EffectiveNumUnits int64  `json:"effectiveNumUnits"`

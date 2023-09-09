@@ -299,6 +299,7 @@ func (a *AccountRoutes) GetAccountRewardsEligibilities(c *gin.Context) {
 				} else {
 					results <- &EligibilityResult{
 						Value: &types.Eligibility{
+							Address:           accountAddress,
 							EffectiveNumUnits: atx.EffectiveNumUnits,
 							Count:             count,
 							PredictedRewards:  predictedRewards * uint64(count),

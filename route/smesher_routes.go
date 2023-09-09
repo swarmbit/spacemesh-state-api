@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	sTypes "github.com/spacemeshos/go-spacemesh/common/types"
+	"github.com/spacemeshos/go-spacemesh/sql/atxs"
 	"github.com/swarmbit/spacemesh-state-api/state"
 	"github.com/swarmbit/spacemesh-state-api/types"
 )
@@ -41,6 +42,24 @@ func (s *SmesherRoutes) GetSmesherEligibility(c *gin.Context) {
 		return
 	}
 
+	currentEpoch, _, err := s.state.GetCurrentEpoch()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status": "Internal Error",
+			"error":  "Failed to get current epoch",
+		})
+		return
+	}
+
+	atx, err := atxs.GetByEpochAndNodeID(s.state.DB, currentEpoch, nodeID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status": "Internal Error",
+			"error":  "Failed to get arx",
+		})
+		return
+	}
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status": "Internal server error",
@@ -58,8 +77,10 @@ func (s *SmesherRoutes) GetSmesherEligibility(c *gin.Context) {
 		return
 	}
 	c.JSON(200, &types.Eligibility{
-		Count:            count,
-		SmesherId:        nodeIdStr,
-		PredictedRewards: predictedRewards * uint64(count),
+		Count:             count,
+		SmesherId:         nodeIdStr,
+		PredictedRewards:  predictedRewards * uint64(count),
+		EffectiveNumUnits: int64(atx.EffectiveNumUnits()),
+		Address:           atx.Coinbase.String(),
 	})
 }
