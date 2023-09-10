@@ -459,8 +459,8 @@ github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o
 github.com/stretchr/testify v1.8.2/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
 github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcUk=
 github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
-github.com/swarmbit/go-spacemesh v1.1.4-custom h1:/b5PUMb48W8/mKTjQwq9hHMJkzc93GX5z7YssCtBR3M=
-github.com/swarmbit/go-spacemesh v1.1.4-custom/go.mod h1:pOVm5RErsbzDqoYc2W1SmXUi2xRm61m0DyAnzLgotqI=
+github.com/swarmbit/go-spacemesh v1.1.4-custom-2 h1:CSYBfc5PlvPrD02H2JoojSH7j2FPacVkClNizZsRMG4=
+github.com/swarmbit/go-spacemesh v1.1.4-custom-2/go.mod h1:pOVm5RErsbzDqoYc2W1SmXUi2xRm61m0DyAnzLgotqI=
 github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpPAyBWyWuQ=
 github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 h1:epCh84lMvA70Z7CTTCmYQn2CKbY8j86K7/FAIr141uY=
 github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7/go.mod h1:q4W45IWZaF22tdD+VEXcAWRA037jwmWEB5VWYORlTpc=

@@ -7,7 +7,7 @@ require (
 	github.com/spacemeshos/go-spacemesh v1.1.3
 )
 
-replace github.com/spacemeshos/go-spacemesh => github.com/swarmbit/go-spacemesh v1.1.4-custom
+replace github.com/spacemeshos/go-spacemesh => github.com/swarmbit/go-spacemesh v1.1.4-custom-2
 
 require (
 	github.com/benbjohnson/clock v1.3.5 // indirect
