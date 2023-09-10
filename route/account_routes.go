@@ -42,7 +42,7 @@ func (a *AccountRoutes) GetAccount(c *gin.Context) {
 			"status": "Internal Error",
 			"error":  "Failed to fetch account",
 		})
-	} else if account.TemplateAddress == nil {
+	} else if account.Address.Bytes() == nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status": "Not Found",
 			"error":  "Account not found",
