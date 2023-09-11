@@ -66,6 +66,10 @@ func (n *NetworkRoutes) fetchNetworkInfo() {
 	if err != nil {
 		return
 	}
+	effectiveUnitsCommitedNextEpoch, err := n.state.GetTotalCommittedForEpoch(epoch)
+	if err != nil {
+		return
+	}
 	circulatingSupply, err := n.state.GetCirculatingSupply()
 	if err != nil {
 		return
@@ -79,6 +83,10 @@ func (n *NetworkRoutes) fetchNetworkInfo() {
 		return
 	}
 
+	totalActiveSmeshersNextEpoch, err := n.state.GetActiveAtxCount(epoch)
+	if err != nil {
+		return
+	}
 	n.networkInfo.Store(INFO_KEY, &types.NetworkInfo{
 		Epoch:                  epoch.Uint32(),
 		Layer:                  int64(layer),
@@ -88,5 +96,10 @@ func (n *NetworkRoutes) fetchNetworkInfo() {
 		AtxHex:                 hex.EncodeToString(highest.Bytes()),
 		AtxBase64:              base64.StdEncoding.EncodeToString(highest.Bytes()),
 		TotalActiveSmeshers:    totalActiveSmeshers,
+		NextEpoch: &types.NetworkInfoNextEpoch{
+			Epoch:                  epoch.Uint32() + 1,
+			EffectiveUnitsCommited: effectiveUnitsCommitedNextEpoch,
+			TotalActiveSmeshers:    totalActiveSmeshersNextEpoch,
+		},
 	})
 }
