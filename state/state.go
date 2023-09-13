@@ -3,6 +3,7 @@ package state
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	sTypes "github.com/spacemeshos/go-spacemesh/common/types"
 	"github.com/spacemeshos/go-spacemesh/proposals/util"
@@ -15,6 +16,7 @@ import (
 )
 
 type State struct {
+	DocDB             *DocDB
 	DB                sql.Executor
 	DBInstance        *sql.Database
 	epochsTotalWeight *sync.Map
@@ -22,16 +24,41 @@ type State struct {
 }
 
 func NewState() *State {
-	db, err := StartDB("/spacemesh/storage/node-data/state.sql", 1)
+	db, err := StartDB("/Users/brunovale/spacemesh-db/node-data/state.sql", 1)
 	if err != nil {
 		fmt.Print("Failed to open db")
 	}
-	return &State{
+
+	docDB, _ := NewDocDB()
+	stateObj := &State{
+		DocDB:             docDB,
 		DB:                db,
 		DBInstance:        db,
 		epochsTotalWeight: &sync.Map{},
 		avgRewards:        &sync.Map{},
 	}
+	stateObj.periodicDocDB()
+	return stateObj
+}
+
+func (s *State) periodicDocDB() {
+	ticker := time.NewTicker(10 * time.Second)
+	go func() {
+		for range ticker.C {
+			offset, _ := s.DocDB.GetOffset("rewards")
+			fmt.Println("Next rewards offset", offset)
+			rewards, _ := s.ListRewardsNoAddress(offset, 100)
+			rewardsDoc := make([]interface{}, len(rewards))
+			for i, r := range rewards {
+				rewardsDoc[i] = RewardsDoc{
+					Ammount: int64(r.TotalReward),
+					AtxID:   r.AtxID.String(),
+					Layer:   int64(r.Layer),
+				}
+			}
+			s.DocDB.SaveRewards(offset, rewardsDoc)
+		}
+	}()
 }
 
 func (s *State) CountTotalRewards(coinbase sTypes.Address) (count int64, err error) {
@@ -156,6 +183,31 @@ func (s *State) ListRewardsPaginated(coinbase sTypes.Address, offset int64, limi
 			stmt.ColumnBytes(4, nodeID[:])
 			reward := &types.SmesherReward{
 				Coinbase:    coinbase,
+				Layer:       sTypes.LayerID(uint32(stmt.ColumnInt64(0))),
+				TotalReward: uint64(stmt.ColumnInt64(1)),
+				LayerReward: uint64(stmt.ColumnInt64(2)),
+				AtxID:       atxID,
+				NodeID:      nodeID,
+			}
+			rst = append(rst, reward)
+			return true
+		})
+	return
+}
+
+func (s *State) ListRewardsNoAddress(offset int64, limit int64) (rst []*types.SmesherReward, err error) {
+	_, err = s.DB.Exec("select r.layer, r.total_reward, r.layer_reward, a.id, a.pubkey  from rewards_atxs r left join atxs a ON r.atx_id = a.id order by layer limit ?1 offset ?2;",
+		func(stmt *sql.Statement) {
+			stmt.BindInt64(1, limit)
+			stmt.BindInt64(2, offset)
+
+		}, func(stmt *sql.Statement) bool {
+
+			var atxID sTypes.ATXID
+			stmt.ColumnBytes(3, atxID[:])
+			var nodeID sTypes.NodeID
+			stmt.ColumnBytes(4, nodeID[:])
+			reward := &types.SmesherReward{
 				Layer:       sTypes.LayerID(uint32(stmt.ColumnInt64(0))),
 				TotalReward: uint64(stmt.ColumnInt64(1)),
 				LayerReward: uint64(stmt.ColumnInt64(2)),
