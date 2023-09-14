@@ -180,9 +180,9 @@ func (a *AccountRoutes) GetAccountRewardsDetails(c *gin.Context) {
 		}
 	}(countEpochChannel, countEpochErrChannel)
 
-	activeAtxChannel := make(chan []*types.Smesher)
+	activeAtxChannel := make(chan []*types.NodeSmesher)
 	activeAtxErrChannel := make(chan error)
-	go func(resultChan chan<- []*types.Smesher, errChan chan<- error) {
+	go func(resultChan chan<- []*types.NodeSmesher, errChan chan<- error) {
 		activeAtx, err := a.state.GetActiveAtxPerAddress(currentEpoch-1, address)
 		if err != nil {
 			errChan <- err
@@ -253,9 +253,9 @@ func (a *AccountRoutes) GetAccountRewardsEligibilities(c *gin.Context) {
 		return
 	}
 
-	activeAtxChannel := make(chan []*types.Smesher)
+	activeAtxChannel := make(chan []*types.NodeSmesher)
 	activeAtxErrChannel := make(chan error)
-	go func(resultChan chan<- []*types.Smesher, errChan chan<- error) {
+	go func(resultChan chan<- []*types.NodeSmesher, errChan chan<- error) {
 		activeAtx, err := a.state.GetActiveAtxPerAddress(currentEpoch-1, address)
 		if err != nil {
 			errChan <- err
@@ -264,7 +264,7 @@ func (a *AccountRoutes) GetAccountRewardsEligibilities(c *gin.Context) {
 		}
 	}(activeAtxChannel, activeAtxErrChannel)
 
-	var activeAtxResult []*types.Smesher
+	var activeAtxResult []*types.NodeSmesher
 
 	select {
 	case activeAtxResult = <-activeAtxChannel:
@@ -280,7 +280,7 @@ func (a *AccountRoutes) GetAccountRewardsEligibilities(c *gin.Context) {
 	eligibilityChannel := make(chan *EligibilityResult, len(activeAtxResult))
 
 	for _, atx := range activeAtxResult {
-		go func(results chan<- *EligibilityResult, atx *types.Smesher) {
+		go func(results chan<- *EligibilityResult, atx *types.NodeSmesher) {
 			count, err := a.state.GetEligibilityCount(atx.NodeID)
 			if err != nil && count == -1 {
 				results <- &EligibilityResult{
