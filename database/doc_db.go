@@ -2,11 +2,11 @@ package database
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"log"
 	"time"
 
+	"github.com/spacemeshos/go-spacemesh/nats"
 	"github.com/swarmbit/spacemesh-state-api/types"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -58,48 +58,15 @@ func (m *DocDB) GetOffset(id string) (int64, error) {
 	return tracking.Offset, nil
 }
 
-func (m *DocDB) SaveLayers(offset int64, layers []*types.NodeLayer) error {
-	if len(layers) > 0 {
-
-		// Start a session
-		session, err := m.client.StartSession()
-		defer session.EndSession(context.TODO())
-
-		callback := func(sessionContext mongo.SessionContext) (interface{}, error) {
-			layersColl := m.client.Database(database).Collection(layersCollection)
-
-			layersDoc := make([]interface{}, len(layers))
-			for i, r := range layers {
-				layersDoc[i] = types.LayerDoc{
-					Layer: int64(r.Layer),
-				}
-			}
-
-			insertResult, err := layersColl.InsertMany(context.TODO(), layersDoc)
-			if err != nil {
-				return insertResult, err
-			}
-
-			trackingColl := m.client.Database(database).Collection(trackingCollection)
-			filter := bson.D{{Key: "_id", Value: "layers"}}
-			replace, err := trackingColl.ReplaceOne(context.TODO(), filter, &types.TrackingDoc{
-				Id:     "layers",
-				Offset: offset + int64(len(insertResult.InsertedIDs)),
-			})
-			return replace, err
-		}
-
-		// Execute the operations in a transaction
-		if _, err := session.WithTransaction(context.TODO(), callback); err != nil {
-			log.Fatalf("Layers transaction failed: %v", err)
-		}
-
-		fmt.Println("Layers transaction succeeded")
-		return err
-	}
-	fmt.Println("No layers to add")
-	return nil
-
+func (m *DocDB) SaveLayer(layer *nats.LayerUpdate) error {
+	layersColl := m.client.Database(database).Collection(layersCollection)
+	_, err := layersColl.UpdateOne(
+		context.TODO(),
+		bson.D{{Key: "_id", Value: layer.LayerID}},
+		bson.D{{Key: "$set", Value: bson.D{{Key: "status", Value: layer.Status}}}},
+		options.Update().SetUpsert(true),
+	)
+	return err
 }
 
 func (m *DocDB) SaveAccounts(offset int64, accounts []*types.NodeAccount) error {
@@ -155,65 +122,46 @@ func (m *DocDB) SaveAccounts(offset int64, accounts []*types.NodeAccount) error 
 	return nil
 }
 
-func (m *DocDB) SaveRewards(offset int64, rewards []*types.NodeSmesherReward) error {
-	if len(rewards) > 0 {
-		session, err := m.client.StartSession()
-		defer session.EndSession(context.TODO())
+func (m *DocDB) SaveReward(reward *nats.Reward) error {
+	session, err := m.client.StartSession()
+	defer session.EndSession(context.TODO())
 
-		callback := func(sessionContext mongo.SessionContext) (interface{}, error) {
-			rewardsColl := m.client.Database(database).Collection(rewardsCollection)
-			accountsColl := m.client.Database(database).Collection(accountsCollection)
+	callback := func(sessionContext mongo.SessionContext) (interface{}, error) {
 
-			rewardsDoc := make([]interface{}, len(rewards))
-			accountUpdatesDoc := make([]mongo.WriteModel, len(rewards))
-			for i, r := range rewards {
-				coinbase := r.Address.String()
-				rewardsDoc[i] = types.RewardsDoc{
-					Coinbase:    coinbase,
-					LayerReward: int64(r.LayerReward),
-					TotalReward: int64(r.TotalReward),
-					AtxID:       hex.EncodeToString(r.AtxID.Bytes()),
-					NodeId:      r.NodeID.String(),
-					Layer:       int64(r.Layer),
-				}
-				accountUpdatesDoc[i] = mongo.NewUpdateOneModel().
-					SetFilter(bson.D{{Key: "_id", Value: coinbase}}).
-					SetUpdate(bson.D{{Key: "$inc", Value: bson.D{{Key: "totalRewards", Value: r.TotalReward}}}}).
-					SetUpsert(true)
+		rewardsColl := m.client.Database(database).Collection(rewardsCollection)
+		accountsColl := m.client.Database(database).Collection(accountsCollection)
 
-			}
-
-			insertResut, err := rewardsColl.InsertMany(context.TODO(), rewardsDoc)
-			if err != nil {
-				return insertResut, err
-			}
-
-			bulkWrite, err := accountsColl.BulkWrite(context.TODO(), accountUpdatesDoc)
-			if err != nil {
-				return bulkWrite, err
-			}
-
-			trackingColl := m.client.Database(database).Collection(trackingCollection)
-			filter := bson.D{{Key: "_id", Value: "rewards"}}
-			replace, err := trackingColl.ReplaceOne(context.TODO(), filter, &types.TrackingDoc{
-				Id:     "rewards",
-				Offset: offset + int64(len(insertResut.InsertedIDs)),
-			})
-			return replace, err
+		rewardDoc := types.RewardsDoc{
+			Coinbase:    reward.Coinbase,
+			LayerReward: int64(reward.LayerReward),
+			TotalReward: int64(reward.Total),
+			AtxID:       reward.AtxID,
+			NodeId:      reward.NodeID,
+			Layer:       int64(reward.Layer),
 		}
 
-		// Execute the operations in a transaction
-		if _, err := session.WithTransaction(context.TODO(), callback); err != nil {
-			log.Fatalf("Rewards transaction failed: %v", err)
+		insertResut, err := rewardsColl.InsertOne(context.TODO(), rewardDoc)
+		if err != nil {
+			return insertResut, err
 		}
 
-		fmt.Println("Rewards transaction succeeded")
-
-		return err
+		updateResult, err := accountsColl.UpdateOne(
+			context.TODO(),
+			bson.D{{Key: "_id", Value: reward.Coinbase}},
+			bson.D{{Key: "$inc", Value: bson.D{{Key: "totalRewards", Value: reward.Total}}}},
+			options.Update().SetUpsert(true),
+		)
+		return updateResult, err
 	}
 
-	fmt.Println("No rewards to add")
-	return nil
+	// Execute the operations in a transaction
+	if _, err := session.WithTransaction(context.TODO(), callback); err != nil {
+		log.Fatalf("Rewards transaction failed: %v", err)
+	}
+
+	fmt.Println("Rewards transaction succeeded")
+
+	return err
 
 }
 

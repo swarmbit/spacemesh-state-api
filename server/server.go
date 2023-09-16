@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/swarmbit/spacemesh-state-api/database"
@@ -17,7 +16,7 @@ import (
 
 func StartServer() {
 
-	nodeDB, err := node.NewNodeDB("/Users/brunovale/spacemesh-db/node-data/state.sql", 1)
+	nodeDB, err := node.NewNodeDB("/Users/brunovale/Dev/git/spacemesh/spacemesh-configs/custom-node/node-data/state.sql", 1)
 	if err != nil {
 		panic("Failed to open node db")
 	}
@@ -30,14 +29,8 @@ func StartServer() {
 	}
 
 	sink := sink.NewSink(docDB, nodeDB)
-
-	go func() {
-		sink.StartRewardsSink()
-		time.Sleep(3 * time.Second)
-		sink.StartLayersSink()
-		time.Sleep(3 * time.Second)
-		sink.StartAccountsSink()
-	}()
+	sink.StartRewardsSink()
+	sink.StartLayersSink()
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()

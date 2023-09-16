@@ -15,7 +15,8 @@ type RewardsDoc struct {
 }
 
 type LayerDoc struct {
-	Layer int64 `bson:"_id"`
+	Layer  int64 `bson:"_id"`
+	Status int   `bson:"status"`
 }
 
 type AccountDoc struct {
