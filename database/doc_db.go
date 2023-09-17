@@ -20,8 +20,9 @@ type DocDB struct {
 const database = "spacemesh"
 const rewardsCollection = "rewards"
 const layersCollection = "layers"
+const epochsCollection = "epochs"
+const atxsCollection = "atxs"
 const accountsCollection = "accounts"
-const trackingCollection = "tracking"
 
 func NewDocDB(dbConnection string) (*DocDB, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -30,32 +31,6 @@ func NewDocDB(dbConnection string) (*DocDB, error) {
 	return &DocDB{
 		client: client,
 	}, err
-}
-
-func (m *DocDB) GetOffset(id string) (int64, error) {
-	trackingColl := m.client.Database(database).Collection(trackingCollection)
-	filter := bson.D{{Key: "_id", Value: id}}
-	var tracking types.TrackingDoc
-	err := trackingColl.FindOne(context.TODO(), filter).Decode(&tracking)
-	if err == mongo.ErrNoDocuments {
-
-		tracking := types.TrackingDoc{
-			Id:     id,
-			Offset: 0,
-		}
-		_, err := trackingColl.InsertOne(context.TODO(), tracking)
-		if err != nil {
-			log.Fatalf("Failed to insert document: %v", err)
-			return 0, err
-		}
-		return 0, nil
-	}
-
-	if err != nil {
-		return 0, err
-	}
-
-	return tracking.Offset, nil
 }
 
 func (m *DocDB) SaveLayer(layer *nats.LayerUpdate) error {
@@ -69,57 +44,47 @@ func (m *DocDB) SaveLayer(layer *nats.LayerUpdate) error {
 	return err
 }
 
-func (m *DocDB) SaveAccounts(offset int64, accounts []*types.NodeAccount) error {
-	if len(accounts) > 0 {
-		session, err := m.client.StartSession()
-		defer session.EndSession(context.TODO())
+func (m *DocDB) SaveAtx(atx *nats.Atx) error {
+	session, err := m.client.StartSession()
+	defer session.EndSession(context.TODO())
 
-		callback := func(sessionContext mongo.SessionContext) (interface{}, error) {
-			accountsColl := m.client.Database(database).Collection(accountsCollection)
-
-			accountUpdatesDoc := make([]mongo.WriteModel, len(accounts))
-			for i, a := range accounts {
-				account := types.AccountDoc{
-					Address:      a.Address.String(),
-					Balance:      a.Balance,
-					NextNonce:    a.NextNonce,
-					LayerUpdated: int64(a.LayerUpdated),
-					Template:     a.Template,
-					State:        a.State,
-				}
-				address := a.Address.String()
-				accountUpdatesDoc[i] = mongo.NewUpdateOneModel().
-					SetFilter(bson.D{{Key: "_id", Value: address}}).
-					SetUpdate(bson.D{{Key: "$set", Value: account}}).SetUpsert(true)
-
-			}
-
-			bulkWrite, err := accountsColl.BulkWrite(context.TODO(), accountUpdatesDoc)
-			if err != nil {
-				return bulkWrite, err
-			}
-
-			trackingColl := m.client.Database(database).Collection(trackingCollection)
-			filter := bson.D{{Key: "_id", Value: "accounts"}}
-			replace, err := trackingColl.ReplaceOne(context.TODO(), filter, &types.TrackingDoc{
-				Id:     "accounts",
-				Offset: offset + int64(len(accounts)),
-			})
-			return replace, err
+	callback := func(sessionContext mongo.SessionContext) (interface{}, error) {
+		atxsColl := m.client.Database(database).Collection(atxsCollection)
+		atxDoc := &types.AtxDoc{
+			AtxID:             atx.AtxID,
+			NodeID:            atx.NodeID,
+			EffectiveNumUnits: atx.EffectiveNumUnits,
+			BaseTick:          atx.BaseTick,
+			TickCount:         atx.TickCount,
+			Sequence:          atx.Sequence,
+			Received:          atx.Received,
 		}
+		updateResult, err := atxsColl.UpdateOne(
+			context.TODO(),
+			bson.D{{Key: "_id", Value: atx.AtxID}},
+			bson.D{{Key: "$set", Value: atxDoc}},
+			options.Update().SetUpsert(true))
 
-		// Execute the operations in a transaction
-		if _, err := session.WithTransaction(context.TODO(), callback); err != nil {
-			log.Fatalf("Accounts transaction failed: %v", err)
-		}
-
-		fmt.Println("Accounts transaction succeeded")
-
-		return err
+		/*
+			epochsColl := m.client.Database(database).Collection(epochsCollection)
+			updateResult, err := atxsColl.UpdateOne(
+				context.TODO(),
+				bson.D{{Key: "_id", Value: atx.}},
+				bson.D{{Key: "$set", Value: atxDoc}},
+				options.Update().SetUpsert(true))
+		*/
+		return updateResult, err
 	}
 
-	fmt.Println("No accounts to add")
-	return nil
+	// Execute the operations in a transaction
+	if _, err := session.WithTransaction(context.TODO(), callback); err != nil {
+		log.Fatalf("Atx transaction failed: %v", err)
+	}
+
+	fmt.Println("Atx transaction succeeded")
+
+	return err
+
 }
 
 func (m *DocDB) SaveReward(reward *nats.Reward) error {

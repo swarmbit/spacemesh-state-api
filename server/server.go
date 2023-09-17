@@ -8,33 +8,31 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/swarmbit/spacemesh-state-api/database"
-	"github.com/swarmbit/spacemesh-state-api/node"
-	"github.com/swarmbit/spacemesh-state-api/route"
 	"github.com/swarmbit/spacemesh-state-api/sink"
-	"github.com/swarmbit/spacemesh-state-api/state"
 )
 
 func StartServer() {
 
-	nodeDB, err := node.NewNodeDB("/Users/brunovale/Dev/git/spacemesh/spacemesh-configs/custom-node/node-data/state.sql", 1)
+	/*nodeDB, err := node.NewNodeDB("/Users/brunovale/Dev/git/spacemesh/spacemesh-configs/custom-node/node-data/state.sql", 1)
 	if err != nil {
 		panic("Failed to open node db")
 	}
 
 	state := state.NewState(nodeDB.DB, nodeDB.DB)
-
+	*/
 	docDB, err := database.NewDocDB("mongodb://localhost:27017")
 	if err != nil {
 		panic("Failed to open document db")
 	}
 
-	sink := sink.NewSink(docDB, nodeDB)
+	sink := sink.NewSink(docDB)
 	sink.StartRewardsSink()
 	sink.StartLayersSink()
+	sink.StartAtxSink()
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
-	route.AddRoutes(state, router)
+	//route.AddRoutes(state, router)
 
 	server := &http.Server{
 		Addr:    ":8080",
@@ -46,7 +44,7 @@ func StartServer() {
 
 	go func() {
 		<-quit
-		nodeDB.Close()
+		//nodeDB.Close()
 		docDB.Close()
 		log.Println("receive interrupt signal")
 		if err := server.Close(); err != nil {

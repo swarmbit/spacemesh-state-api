@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"time"
 
 	natsS "github.com/spacemeshos/go-spacemesh/nats"
 
@@ -21,7 +20,7 @@ type Sink struct {
 	atxSub     *nats.Subscription
 }
 
-func NewSink(docDB *database.DocDB, nodeDB *node.NodeDB) *Sink {
+func NewSink(docDB *database.DocDB) *Sink {
 	nc, err := nats.Connect("nats://127.0.0.1:4222")
 	if err != nil {
 		panic("Failed to connect to NATS")
@@ -38,7 +37,7 @@ func NewSink(docDB *database.DocDB, nodeDB *node.NodeDB) *Sink {
 	})
 
 	js.AddConsumer("rewards", &nats.ConsumerConfig{
-		Durable:        "state-api-process",
+		Durable:        "state-api-process-rewards",
 		DeliverSubject: "rewards",
 		DeliverGroup:   "state-api-process-rewards",
 		AckPolicy:      nats.AckExplicitPolicy,
@@ -46,21 +45,21 @@ func NewSink(docDB *database.DocDB, nodeDB *node.NodeDB) *Sink {
 	})
 
 	js.AddConsumer("atx", &nats.ConsumerConfig{
-		Durable:        "state-api-process",
+		Durable:        "state-api-process-atx",
 		DeliverSubject: "atx",
 		DeliverGroup:   "state-api-process-atx",
 		AckPolicy:      nats.AckExplicitPolicy,
 		DeliverPolicy:  nats.DeliverLastPolicy,
 	})
 	js.AddConsumer("transactions", &nats.ConsumerConfig{
-		Durable:        "state-api-process",
+		Durable:        "state-api-process-transactions-result",
 		DeliverSubject: "transaction.results",
 		DeliverGroup:   "state-api-process-transactions",
 		AckPolicy:      nats.AckExplicitPolicy,
 		DeliverPolicy:  nats.DeliverLastPolicy,
 	})
 	js.AddConsumer("transactions", &nats.ConsumerConfig{
-		Durable:        "state-api-process",
+		Durable:        "state-api-process-transactions-created",
 		DeliverSubject: "transaction.created",
 		DeliverGroup:   "state-api-process-transactions",
 		AckPolicy:      nats.AckExplicitPolicy,
@@ -68,16 +67,24 @@ func NewSink(docDB *database.DocDB, nodeDB *node.NodeDB) *Sink {
 	})
 
 	fmt.Println("Connect to nats stream")
-	layersSub, _ := nc.QueueSubscribeSync("layers", "layers-queue")
-	rewardsSub, _ := nc.QueueSubscribeSync("rewards", "rewards-queue")
-	atxSub, _ := nc.QueueSubscribeSync("atx", "atx-queue")
+	layersSub, err := js.PullSubscribe("layers", "layers", nats.BindStream("layers"))
+	if err != nil {
+		fmt.Println("Failed to subscribe: ", err)
+	}
+	rewardsSub, err := js.PullSubscribe("rewards", "rewards", nats.BindStream("rewards"))
+	if err != nil {
+		fmt.Println("Failed to subscribe: ", err)
+	}
+	atxSub, err := js.PullSubscribe("atx", "atx", nats.BindStream("atx"))
+	if err != nil {
+		fmt.Println("Failed to subscribe: ", err)
+	}
 
 	return &Sink{
 		layersSub:  layersSub,
 		rewardsSub: rewardsSub,
 		atxSub:     atxSub,
 		DocDB:      docDB,
-		NodeDB:     nodeDB,
 	}
 }
 
@@ -86,25 +93,31 @@ func (s *Sink) StartRewardsSink() {
 
 	go func() {
 		for {
-			msg, err := s.rewardsSub.NextMsg(time.Hour)
-			fmt.Println("New reward")
+			msgs, err := s.rewardsSub.Fetch(10)
 			if err == nats.ErrTimeout {
 				fmt.Println("Error ", err.Error())
-				break
-			}
-			fmt.Println("Reward: ", string(msg.Data))
-
-			var reward *natsS.Reward
-			errJson := json.Unmarshal(msg.Data, &reward)
-			fmt.Println("Next reward: ", reward.Layer)
-			if errJson != nil {
-				log.Fatal("Error parsing json reward: ", err)
 				continue
 			}
-			s.DocDB.SaveReward(reward)
-			fmt.Println("Reward saved")
+			for _, msg := range msgs {
+				fmt.Println("New reward")
+				var reward *natsS.Reward
+				errJson := json.Unmarshal(msg.Data, &reward)
+				fmt.Println("Next reward: ", reward.Layer)
+				if errJson != nil {
+					log.Fatal("Error parsing json reward: ", err)
+					continue
+				}
+				saveErr := s.DocDB.SaveReward(reward)
 
-			msg.Ack()
+				if saveErr != nil {
+					fmt.Println("Failed to save reward")
+					msg.Nak()
+
+				} else {
+					fmt.Println("Reward saved")
+					msg.Ack()
+				}
+			}
 		}
 	}()
 }
@@ -114,39 +127,70 @@ func (s *Sink) StartLayersSink() {
 
 	go func() {
 		for {
-			msg, err := s.layersSub.NextMsg(time.Hour)
-			fmt.Println("New layers")
+			msgs, err := s.layersSub.Fetch(10)
 			if err == nats.ErrTimeout {
 				fmt.Println("Error ", err.Error())
-				break
-			}
-			fmt.Println("Layer: ", string(msg.Data))
-
-			var layer *natsS.LayerUpdate
-			errJson := json.Unmarshal(msg.Data, &layer)
-			fmt.Println("Next layer: ", layer.LayerID)
-			if errJson != nil {
-				log.Fatal("Error parsing json layer: ", err)
 				continue
 			}
-			s.DocDB.SaveLayer(layer)
-			fmt.Println("Layer saved")
+			for _, msg := range msgs {
 
-			msg.Ack()
+				fmt.Println("New layers")
+				if err == nats.ErrTimeout {
+					fmt.Println("Error ", err.Error())
+					break
+				}
+				fmt.Println("Layer: ", string(msg.Data))
+				var layer *natsS.LayerUpdate
+				errJson := json.Unmarshal(msg.Data, &layer)
+				fmt.Println("Next layer: ", layer.LayerID)
+				if errJson != nil {
+					log.Fatal("Error parsing json layer: ", err)
+					continue
+				}
+				saveErr := s.DocDB.SaveLayer(layer)
+				if saveErr != nil {
+					fmt.Println("Failed to save layer")
+					msg.Nak()
+				} else {
+					fmt.Println("Layer saved")
+					msg.Ack()
+				}
+			}
 		}
 	}()
 }
 
-/*
-func (s *Sink) StartAccountsSink() {
-	ticker := time.NewTicker(2 * time.Second)
+func (s *Sink) StartAtxSink() {
+	fmt.Println("Start atx sink")
+
 	go func() {
-		for range ticker.C {
-			offset, _ := s.DocDB.GetOffset("accounts")
-			fmt.Println("Next accounts offset", offset)
-			accounts, _ := s.NodeDB.ListAccounts(offset, 1000)
-			s.DocDB.SaveAccounts(offset, accounts)
+		for {
+
+			msgs, err := s.atxSub.Fetch(10)
+			if err == nats.ErrTimeout {
+				fmt.Println("Error ", err.Error())
+				continue
+			}
+			for _, msg := range msgs {
+
+				fmt.Println("Atx: ", string(msg.Data))
+				var atx *natsS.Atx
+				errJson := json.Unmarshal(msg.Data, &atx)
+				fmt.Println("Next atx: ", atx.NodeID)
+				if errJson != nil {
+					log.Fatal("Error parsing json atx: ", err)
+					continue
+				}
+				saveErr := s.DocDB.SaveAtx(atx)
+				if saveErr != nil {
+					fmt.Println("Failed to save atx")
+					msg.Nak()
+				} else {
+					fmt.Println("Atx saved")
+					msg.Ack()
+				}
+			}
+
 		}
 	}()
 }
-*/
