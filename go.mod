@@ -5,11 +5,13 @@ go 1.21
 require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/nats-io/nats.go v1.29.0
+	github.com/spacemeshos/go-scale v1.1.11
 	github.com/spacemeshos/go-spacemesh v1.1.3
+	github.com/stretchr/testify v1.8.4
 	go.mongodb.org/mongo-driver v1.12.1
 )
 
-replace github.com/spacemeshos/go-spacemesh => github.com/swarmbit/go-spacemesh v1.1.5-NATS-3
+replace github.com/spacemeshos/go-spacemesh => github.com/swarmbit/go-spacemesh v1.1.8-nats-1
 
 require (
 	github.com/benbjohnson/clock v1.3.5 // indirect
@@ -110,6 +112,7 @@ require (
 	github.com/nats-io/jwt/v2 v2.5.0 // indirect
 	github.com/nats-io/nkeys v0.4.4 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
+	github.com/oasisprotocol/curve25519-voi v0.0.0-20230904125328-1f23a7beb09a // indirect
 	github.com/onsi/ginkgo/v2 v2.11.0 // indirect
 	github.com/opencontainers/runtime-spec v1.1.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
@@ -128,13 +131,11 @@ require (
 	github.com/quic-go/webtransport-go v0.5.3 // indirect
 	github.com/raulk/go-watchdog v1.3.0 // indirect
 	github.com/spacemeshos/fixed v0.1.1 // indirect
-	github.com/spacemeshos/go-scale v1.1.11 // indirect
 	github.com/spacemeshos/merkle-tree v0.2.3 // indirect
 	github.com/spacemeshos/poet v0.9.1 // indirect
 	github.com/spacemeshos/post v0.9.4 // indirect
 	github.com/spacemeshos/sha256-simd v0.1.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
-	github.com/stretchr/testify v1.8.4 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
