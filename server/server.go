@@ -29,6 +29,8 @@ func StartServer() {
 	sink.StartRewardsSink()
 	sink.StartLayersSink()
 	sink.StartAtxSink()
+	sink.StartTransactionCreatedSink()
+	sink.StartTransactionResultSink()
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()

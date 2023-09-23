@@ -13,11 +13,13 @@ import (
 )
 
 type Sink struct {
-	DocDB      *database.DocDB
-	NodeDB     *node.NodeDB
-	layersSub  *nats.Subscription
-	rewardsSub *nats.Subscription
-	atxSub     *nats.Subscription
+	DocDB                  *database.DocDB
+	NodeDB                 *node.NodeDB
+	layersSub              *nats.Subscription
+	rewardsSub             *nats.Subscription
+	atxSub                 *nats.Subscription
+	transactionsResultSub  *nats.Subscription
+	transactionsCreatedSub *nats.Subscription
 }
 
 func NewSink(docDB *database.DocDB) *Sink {
@@ -53,14 +55,14 @@ func NewSink(docDB *database.DocDB) *Sink {
 	})
 	js.AddConsumer("transactions", &nats.ConsumerConfig{
 		Durable:        "state-api-process-transactions-result",
-		DeliverSubject: "transaction.results",
+		DeliverSubject: "transactions.result",
 		DeliverGroup:   "state-api-process-transactions",
 		AckPolicy:      nats.AckExplicitPolicy,
 		DeliverPolicy:  nats.DeliverLastPolicy,
 	})
 	js.AddConsumer("transactions", &nats.ConsumerConfig{
 		Durable:        "state-api-process-transactions-created",
-		DeliverSubject: "transaction.created",
+		DeliverSubject: "transactions.created",
 		DeliverGroup:   "state-api-process-transactions",
 		AckPolicy:      nats.AckExplicitPolicy,
 		DeliverPolicy:  nats.DeliverLastPolicy,
@@ -79,12 +81,21 @@ func NewSink(docDB *database.DocDB) *Sink {
 	if err != nil {
 		fmt.Println("Failed to subscribe: ", err)
 	}
-
+	transactionsResultSub, err := js.PullSubscribe("transactions.result", "transactions-result", nats.BindStream("transactions"))
+	if err != nil {
+		fmt.Println("Failed to subscribe: ", err)
+	}
+	transactionsCreatedSub, err := js.PullSubscribe("transactions.created", "transactions-created", nats.BindStream("transactions"))
+	if err != nil {
+		fmt.Println("Failed to subscribe: ", err)
+	}
 	return &Sink{
-		layersSub:  layersSub,
-		rewardsSub: rewardsSub,
-		atxSub:     atxSub,
-		DocDB:      docDB,
+		layersSub:              layersSub,
+		rewardsSub:             rewardsSub,
+		atxSub:                 atxSub,
+		transactionsResultSub:  transactionsResultSub,
+		transactionsCreatedSub: transactionsCreatedSub,
+		DocDB:                  docDB,
 	}
 }
 
@@ -187,6 +198,76 @@ func (s *Sink) StartAtxSink() {
 					msg.Nak()
 				} else {
 					fmt.Println("Atx saved")
+					msg.Ack()
+				}
+			}
+
+		}
+	}()
+}
+
+func (s *Sink) StartTransactionResultSink() {
+	fmt.Println("Start transaction result sink")
+
+	go func() {
+		for {
+
+			msgs, err := s.transactionsResultSub.Fetch(10)
+			if err == nats.ErrTimeout {
+				fmt.Println("Error ", err.Error())
+				continue
+			}
+			for _, msg := range msgs {
+
+				fmt.Println("Transaction: ", string(msg.Data))
+				var transaction *natsS.Transaction
+				errJson := json.Unmarshal(msg.Data, &transaction)
+				fmt.Println("Next transaction: ", transaction)
+				if errJson != nil {
+					log.Fatal("Error parsing json transaction: ", err)
+					continue
+				}
+				saveErr := s.DocDB.SaveTransactions(transaction)
+				if saveErr != nil {
+					fmt.Println("Failed to save transaction")
+					msg.Nak()
+				} else {
+					fmt.Println("Transaction saved")
+					msg.Ack()
+				}
+			}
+
+		}
+	}()
+}
+
+func (s *Sink) StartTransactionCreatedSink() {
+	fmt.Println("Start transaction created sink")
+
+	go func() {
+		for {
+
+			msgs, err := s.transactionsCreatedSub.Fetch(10)
+			if err == nats.ErrTimeout {
+				fmt.Println("Error ", err.Error())
+				continue
+			}
+			for _, msg := range msgs {
+
+				fmt.Println("Transaction: ", string(msg.Data))
+				var transaction *natsS.Transaction
+				errJson := json.Unmarshal(msg.Data, &transaction)
+				fmt.Println("Next transaction: ", transaction)
+				if errJson != nil {
+					log.Fatal("Error parsing json transaction: ", err)
+					continue
+				}
+				saveErr := s.DocDB.SaveTransactions(transaction)
+				if saveErr != nil {
+					fmt.Println("Failed to save transaction")
+					msg.Nak()
+				} else {
+					fmt.Println("Transaction saved")
 					msg.Ack()
 				}
 			}
