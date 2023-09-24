@@ -17,6 +17,8 @@ type LayerDoc struct {
 type AtxDoc struct {
 	AtxID             string `bson:"_id"`
 	NodeID            string `bson:"node_id"`
+	Coinbase          string `bson:"coinbase"`
+	PublishEpoch      uint32 `json:"publish_epoch"`
 	EffectiveNumUnits uint32 `bson:"effective_num_units"`
 	BaseTick          uint64 `bson:"base_tick"`
 	TickCount         uint64 `bson:"tick_count"`

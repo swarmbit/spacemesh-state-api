@@ -11,7 +11,7 @@ require (
 	go.mongodb.org/mongo-driver v1.12.1
 )
 
-replace github.com/spacemeshos/go-spacemesh => github.com/swarmbit/go-spacemesh v1.1.8-nats-1
+replace github.com/spacemeshos/go-spacemesh => github.com/swarmbit/go-spacemesh v1.1.8-nats-2
 
 require (
 	github.com/benbjohnson/clock v1.3.5 // indirect

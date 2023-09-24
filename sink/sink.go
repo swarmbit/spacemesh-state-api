@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	natsS "github.com/spacemeshos/go-spacemesh/nats"
 
@@ -13,7 +14,7 @@ import (
 )
 
 type Sink struct {
-	DocDB                  *database.DocDB
+	WriteDB                *database.WriteDB
 	NodeDB                 *node.NodeDB
 	layersSub              *nats.Subscription
 	rewardsSub             *nats.Subscription
@@ -22,7 +23,7 @@ type Sink struct {
 	transactionsCreatedSub *nats.Subscription
 }
 
-func NewSink(docDB *database.DocDB) *Sink {
+func NewSink(writeDB *database.WriteDB) *Sink {
 	nc, err := nats.Connect("nats://127.0.0.1:4222")
 	if err != nil {
 		panic("Failed to connect to NATS")
@@ -95,7 +96,7 @@ func NewSink(docDB *database.DocDB) *Sink {
 		atxSub:                 atxSub,
 		transactionsResultSub:  transactionsResultSub,
 		transactionsCreatedSub: transactionsCreatedSub,
-		DocDB:                  docDB,
+		WriteDB:                writeDB,
 	}
 }
 
@@ -104,7 +105,7 @@ func (s *Sink) StartRewardsSink() {
 
 	go func() {
 		for {
-			msgs, err := s.rewardsSub.Fetch(10)
+			msgs, err := s.rewardsSub.Fetch(10, nats.MaxWait(2*time.Hour))
 			if err == nats.ErrTimeout {
 				fmt.Println("Error ", err.Error())
 				continue
@@ -118,7 +119,7 @@ func (s *Sink) StartRewardsSink() {
 					log.Fatal("Error parsing json reward: ", err)
 					continue
 				}
-				saveErr := s.DocDB.SaveReward(reward)
+				saveErr := s.WriteDB.SaveReward(reward)
 
 				if saveErr != nil {
 					fmt.Println("Failed to save reward")
@@ -138,7 +139,7 @@ func (s *Sink) StartLayersSink() {
 
 	go func() {
 		for {
-			msgs, err := s.layersSub.Fetch(10)
+			msgs, err := s.layersSub.Fetch(10, nats.MaxWait(2*time.Hour))
 			if err == nats.ErrTimeout {
 				fmt.Println("Error ", err.Error())
 				continue
@@ -158,7 +159,7 @@ func (s *Sink) StartLayersSink() {
 					log.Fatal("Error parsing json layer: ", err)
 					continue
 				}
-				saveErr := s.DocDB.SaveLayer(layer)
+				saveErr := s.WriteDB.SaveLayer(layer)
 				if saveErr != nil {
 					fmt.Println("Failed to save layer")
 					msg.Nak()
@@ -177,7 +178,7 @@ func (s *Sink) StartAtxSink() {
 	go func() {
 		for {
 
-			msgs, err := s.atxSub.Fetch(10)
+			msgs, err := s.atxSub.Fetch(10, nats.MaxWait(2*time.Hour))
 			if err == nats.ErrTimeout {
 				fmt.Println("Error ", err.Error())
 				continue
@@ -192,7 +193,7 @@ func (s *Sink) StartAtxSink() {
 					log.Fatal("Error parsing json atx: ", err)
 					continue
 				}
-				saveErr := s.DocDB.SaveAtx(atx)
+				saveErr := s.WriteDB.SaveAtx(atx)
 				if saveErr != nil {
 					fmt.Println("Failed to save atx")
 					msg.Nak()
@@ -212,7 +213,7 @@ func (s *Sink) StartTransactionResultSink() {
 	go func() {
 		for {
 
-			msgs, err := s.transactionsResultSub.Fetch(10)
+			msgs, err := s.transactionsResultSub.Fetch(10, nats.MaxWait(2*time.Hour))
 			if err == nats.ErrTimeout {
 				fmt.Println("Error ", err.Error())
 				continue
@@ -227,7 +228,7 @@ func (s *Sink) StartTransactionResultSink() {
 					log.Fatal("Error parsing json transaction: ", err)
 					continue
 				}
-				saveErr := s.DocDB.SaveTransactions(transaction)
+				saveErr := s.WriteDB.SaveTransactions(transaction)
 				if saveErr != nil {
 					fmt.Println("Failed to save transaction")
 					msg.Nak()
@@ -247,7 +248,7 @@ func (s *Sink) StartTransactionCreatedSink() {
 	go func() {
 		for {
 
-			msgs, err := s.transactionsCreatedSub.Fetch(10)
+			msgs, err := s.transactionsCreatedSub.Fetch(10, nats.MaxWait(2*time.Hour))
 			if err == nats.ErrTimeout {
 				fmt.Println("Error ", err.Error())
 				continue
@@ -262,7 +263,7 @@ func (s *Sink) StartTransactionCreatedSink() {
 					log.Fatal("Error parsing json transaction: ", err)
 					continue
 				}
-				saveErr := s.DocDB.SaveTransactions(transaction)
+				saveErr := s.WriteDB.SaveTransactions(transaction)
 				if saveErr != nil {
 					fmt.Println("Failed to save transaction")
 					msg.Nak()

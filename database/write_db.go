@@ -16,28 +16,104 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type DocDB struct {
+type WriteDB struct {
 	client *mongo.Client
 }
 
 const database = "spacemesh"
 const rewardsCollection = "rewards"
 const layersCollection = "layers"
-const epochsCollection = "epochs"
 const atxsCollection = "atxs"
 const accountsCollection = "accounts"
 const transactionsCollection = "transactions"
 
-func NewDocDB(dbConnection string) (*DocDB, error) {
+func NewWriteDB(dbConnection string) (*WriteDB, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(dbConnection))
-	return &DocDB{
+	createIndexes(client)
+	return &WriteDB{
 		client: client,
 	}, err
 }
 
-func (m *DocDB) SaveLayer(layer *nats.LayerUpdate) error {
+func createIndexes(client *mongo.Client) error {
+	rewardsColl := client.Database(database).Collection(rewardsCollection)
+	rewardsIndexes := []mongo.IndexModel{
+		{
+			Keys: bson.D{
+				{Key: "coinbase", Value: 1},
+				{Key: "layer", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys: bson.D{
+				{Key: "node_id", Value: 1},
+				{Key: "layer", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
+	}
+
+	_, err := rewardsColl.Indexes().CreateMany(context.TODO(), rewardsIndexes)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	transactionsColl := client.Database(database).Collection(transactionsCollection)
+	transactionsIndexes := []mongo.IndexModel{
+		{
+			Keys: bson.D{
+				{Key: "principal_account", Value: 1},
+				{Key: "layer", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys: bson.D{
+				{Key: "receiver_account", Value: 1},
+				{Key: "layer", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
+	}
+
+	_, err = transactionsColl.Indexes().CreateMany(context.TODO(), transactionsIndexes)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	atxColl := client.Database(database).Collection(atxsCollection)
+	atxIndexes := []mongo.IndexModel{
+		{
+			Keys: bson.D{
+				{Key: "node_id", Value: 1},
+				{Key: "layer", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys: bson.D{
+				{Key: "coinbase", Value: 1},
+				{Key: "layer", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
+	}
+
+	_, err = atxColl.Indexes().CreateMany(context.TODO(), atxIndexes)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	return nil
+}
+
+func (m *WriteDB) SaveLayer(layer *nats.LayerUpdate) error {
 	layersColl := m.client.Database(database).Collection(layersCollection)
 	_, err := layersColl.UpdateOne(
 		context.TODO(),
@@ -48,7 +124,7 @@ func (m *DocDB) SaveLayer(layer *nats.LayerUpdate) error {
 	return err
 }
 
-func (m *DocDB) SaveAtx(atx *nats.Atx) error {
+func (m *WriteDB) SaveAtx(atx *nats.Atx) error {
 	session, err := m.client.StartSession()
 	defer session.EndSession(context.TODO())
 
@@ -61,6 +137,8 @@ func (m *DocDB) SaveAtx(atx *nats.Atx) error {
 			BaseTick:          atx.BaseTick,
 			TickCount:         atx.TickCount,
 			Sequence:          atx.Sequence,
+			PublishEpoch:      atx.PublishEpoch,
+			Coinbase:          atx.Coinbase,
 			Received:          atx.Received,
 		}
 		updateResult, err := atxsColl.UpdateOne(
@@ -69,14 +147,6 @@ func (m *DocDB) SaveAtx(atx *nats.Atx) error {
 			bson.D{{Key: "$set", Value: atxDoc}},
 			options.Update().SetUpsert(true))
 
-		/*
-			epochsColl := m.client.Database(database).Collection(epochsCollection)
-			updateResult, err := atxsColl.UpdateOne(
-				context.TODO(),
-				bson.D{{Key: "_id", Value: atx.}},
-				bson.D{{Key: "$set", Value: atxDoc}},
-				options.Update().SetUpsert(true))
-		*/
 		return updateResult, err
 	}
 
@@ -91,7 +161,7 @@ func (m *DocDB) SaveAtx(atx *nats.Atx) error {
 
 }
 
-func (m *DocDB) SaveTransactions(transaction *nats.Transaction) error {
+func (m *WriteDB) SaveTransactions(transaction *nats.Transaction) error {
 	session, err := m.client.StartSession()
 	defer session.EndSession(context.TODO())
 
@@ -194,7 +264,7 @@ func (m *DocDB) SaveTransactions(transaction *nats.Transaction) error {
 
 }
 
-func (m *DocDB) SaveReward(reward *nats.Reward) error {
+func (m *WriteDB) SaveReward(reward *nats.Reward) error {
 	session, err := m.client.StartSession()
 	defer session.EndSession(context.TODO())
 
@@ -240,6 +310,6 @@ func (m *DocDB) SaveReward(reward *nats.Reward) error {
 
 }
 
-func (m *DocDB) Close() {
+func (m *WriteDB) Close() {
 	m.client.Disconnect(context.TODO())
 }

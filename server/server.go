@@ -20,12 +20,12 @@ func StartServer() {
 
 	state := state.NewState(nodeDB.DB, nodeDB.DB)
 	*/
-	docDB, err := database.NewDocDB("mongodb://localhost:27017")
+	writeDB, err := database.NewWriteDB("mongodb://localhost:27017")
 	if err != nil {
 		panic("Failed to open document db")
 	}
 
-	sink := sink.NewSink(docDB)
+	sink := sink.NewSink(writeDB)
 	sink.StartRewardsSink()
 	sink.StartLayersSink()
 	sink.StartAtxSink()
@@ -47,7 +47,7 @@ func StartServer() {
 	go func() {
 		<-quit
 		//nodeDB.Close()
-		docDB.Close()
+		writeDB.Close()
 		log.Println("receive interrupt signal")
 		if err := server.Close(); err != nil {
 			log.Fatal("Server Close:", err)
