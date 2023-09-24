@@ -377,7 +377,7 @@ func (m *WriteDB) SaveReward(reward *nats.Reward) error {
 
 }
 
-func (m *WriteDB) Close() {
+func (m *WriteDB) CloseWrite() {
 	m.client.Disconnect(context.TODO())
 }
 

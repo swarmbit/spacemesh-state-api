@@ -57,9 +57,12 @@ type TransactionDoc struct {
 
 type AccountDoc struct {
 	Address      string `bson:"_id"`
-	LayerUpdated int64  `bson:"layer_updated"`
-	Balance      int64  `bson:"balance"`
-	NextNonce    int    `bson:"next_nonce"`
-	Template     string `bson:"template"`
-	State        []byte `bson:"state"`
+	Balance      uint64 `bson:"balance"`
+	TotalRewards uint64 `bson:"totalRewards"`
+	Fees         uint64 `bson:"fees"`
+	Sent         uint64 `bson:"sent"`
+}
+
+type AggregationTotal struct {
+	TotalSum int64 `bson:"totalSum"`
 }

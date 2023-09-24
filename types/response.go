@@ -1,10 +1,12 @@
 package types
 
 type Account struct {
-	Balance        int64  `json:"balance"`
-	BalanceDisplay string `json:"balanceDisplay"`
-	Counter        int64  `json:"counter"`
-	Address        string `json:"address"`
+	Balance              uint64 `json:"balance"`
+	BalanceDisplay       string `json:"balanceDisplay"`
+	NumberOfTransactions int64  `json:"numberOfTransactions"`
+	NumberOfRewards      int64  `json:"numberOfRewards"`
+	TotalRewards         uint64 `json:"totalRewards"`
+	Address              string `json:"address"`
 }
 
 type Reward struct {
@@ -14,6 +16,18 @@ type Reward struct {
 	SmesherId      string `json:"smesherId"`
 	Time           string `json:"time"`
 	Timestamp      int64  `json:"timestamp"`
+}
+
+type Transaction struct {
+	ID              string `bson:"_id"`
+	Status          uint8  `json:"status"`
+	PrincipaAccount string `bson:"principal_account"`
+	ReceiverAccount string `bson:"receiver_account"`
+	Fee             uint64 `bson:"fee"`
+	Amount          uint64 `bson:"amount"`
+	Layer           uint32 `bson:"layer"`
+	Counter         uint64 `bson:"counter"`
+	Method          string `json:"method"`
 }
 
 type RewardDetails struct {
