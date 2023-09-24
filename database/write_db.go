@@ -24,6 +24,9 @@ const database = "spacemesh"
 const rewardsCollection = "rewards"
 const layersCollection = "layers"
 const atxsCollection = "atxs"
+const atxsEpochsCollection = "atxsEpochs"
+const nodesCollection = "nodes"
+const networkInfoCollection = "networkInfo"
 const accountsCollection = "accounts"
 const transactionsCollection = "transactions"
 
@@ -130,6 +133,9 @@ func (m *WriteDB) SaveAtx(atx *nats.Atx) error {
 
 	callback := func(sessionContext mongo.SessionContext) (interface{}, error) {
 		atxsColl := m.client.Database(database).Collection(atxsCollection)
+		atxsEpochsColl := m.client.Database(database).Collection(atxsEpochsCollection)
+		nodesColl := m.client.Database(database).Collection(nodesCollection)
+		weight := getATXWeight(atx.TickCount, uint64(atx.EffectiveNumUnits))
 		atxDoc := &types.AtxDoc{
 			AtxID:             atx.AtxID,
 			NodeID:            atx.NodeID,
@@ -140,12 +146,44 @@ func (m *WriteDB) SaveAtx(atx *nats.Atx) error {
 			PublishEpoch:      atx.PublishEpoch,
 			Coinbase:          atx.Coinbase,
 			Received:          atx.Received,
+			Weight:            weight,
 		}
 		updateResult, err := atxsColl.UpdateOne(
 			context.TODO(),
 			bson.D{{Key: "_id", Value: atx.AtxID}},
 			bson.D{{Key: "$set", Value: atxDoc}},
 			options.Update().SetUpsert(true))
+		if err != nil {
+			return updateResult, err
+		}
+		updateResult, err = atxsEpochsColl.UpdateOne(
+			context.TODO(),
+			bson.D{{Key: "_id", Value: atxDoc.PublishEpoch}},
+			bson.D{{Key: "$inc", Value: bson.D{
+				{Key: "totalEffectiveNumUnits", Value: atx.EffectiveNumUnits},
+				{Key: "totalWeight", Value: weight},
+			}}},
+			options.Update().SetUpsert(true),
+		)
+		if err != nil {
+			return updateResult, err
+		}
+
+		updateResult, err = nodesColl.UpdateOne(
+			context.TODO(),
+			bson.D{{Key: "_id", Value: atxDoc.NodeID}},
+			bson.D{{Key: "$addToSet", Value: bson.D{
+				{Key: "atxs", Value: bson.D{
+					{Key: "coinbase", Value: atxDoc.Coinbase},
+					{Key: "effectiveNumUnits", Value: atxDoc.EffectiveNumUnits},
+					{Key: "sequence", Value: atxDoc.Sequence},
+					{Key: "weight", Value: atxDoc.Weight},
+					{Key: "publishEpoch", Value: atxDoc.PublishEpoch},
+					{Key: "received", Value: atxDoc.Received},
+				}},
+			}}},
+			options.Update().SetUpsert(true),
+		)
 
 		return updateResult, err
 	}
@@ -159,6 +197,22 @@ func (m *WriteDB) SaveAtx(atx *nats.Atx) error {
 
 	return err
 
+}
+
+func (m *WriteDB) SaveMalfeasance(malfeasance *nats.Malfeasance) error {
+	nodesColl := m.client.Database(database).Collection(nodesCollection)
+	_, err := nodesColl.UpdateOne(
+		context.TODO(),
+		bson.D{{Key: "_id", Value: malfeasance.NodeID}},
+		bson.D{{Key: "$set", Value: bson.D{
+			{Key: "malfeasance", Value: bson.D{
+				{Key: "received", Value: malfeasance.Received},
+			}},
+		}}},
+		options.Update().SetUpsert(true),
+	)
+	fmt.Println("Malfeasance succeeded")
+	return err
 }
 
 func (m *WriteDB) SaveTransactions(transaction *nats.Transaction) error {
@@ -272,6 +326,7 @@ func (m *WriteDB) SaveReward(reward *nats.Reward) error {
 
 		rewardsColl := m.client.Database(database).Collection(rewardsCollection)
 		accountsColl := m.client.Database(database).Collection(accountsCollection)
+		networkInfoColl := m.client.Database(database).Collection(networkInfoCollection)
 
 		rewardDoc := types.RewardsDoc{
 			Coinbase:    reward.Coinbase,
@@ -296,6 +351,18 @@ func (m *WriteDB) SaveReward(reward *nats.Reward) error {
 			}}},
 			options.Update().SetUpsert(true),
 		)
+		if err != nil {
+			return updateResult, err
+		}
+
+		updateResult, err = networkInfoColl.UpdateOne(
+			context.TODO(),
+			bson.D{{Key: "_id", Value: "info"}},
+			bson.D{{Key: "$inc", Value: bson.D{
+				{Key: "circulatingSupply", Value: reward.Total},
+			}}},
+			options.Update().SetUpsert(true),
+		)
 		return updateResult, err
 	}
 
@@ -312,4 +379,16 @@ func (m *WriteDB) SaveReward(reward *nats.Reward) error {
 
 func (m *WriteDB) Close() {
 	m.client.Disconnect(context.TODO())
+}
+
+func getATXWeight(numUnits, tickCount uint64) uint64 {
+	return safeMul(numUnits, tickCount)
+}
+
+func safeMul(a, b uint64) uint64 {
+	c := a * b
+	if a > 1 && b > 1 && c/b != a {
+		panic("uint64 overflow")
+	}
+	return c
 }

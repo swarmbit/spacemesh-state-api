@@ -14,6 +14,20 @@ type LayerDoc struct {
 	Status int   `bson:"status"`
 }
 
+type NodeDoc struct {
+	ID   string       `bson:"_id"`
+	Atxs []NodeAtxDoc `bson:"atxs"`
+}
+
+type NodeAtxDoc struct {
+	Coinbase          string `bson:"coinbase"`
+	PublishEpoch      uint32 `json:"publish_epoch"`
+	EffectiveNumUnits uint32 `bson:"effective_num_units"`
+	Weight            uint64 `bson:"weight"`
+	Sequence          uint64 `json:"sequence"`
+	Received          int64  `json:"received"`
+}
+
 type AtxDoc struct {
 	AtxID             string `bson:"_id"`
 	NodeID            string `bson:"node_id"`
@@ -21,6 +35,7 @@ type AtxDoc struct {
 	PublishEpoch      uint32 `json:"publish_epoch"`
 	EffectiveNumUnits uint32 `bson:"effective_num_units"`
 	BaseTick          uint64 `bson:"base_tick"`
+	Weight            uint64 `bson:"weight"`
 	TickCount         uint64 `bson:"tick_count"`
 	Sequence          uint64 `json:"sequence"`
 	Received          int64  `json:"received"`

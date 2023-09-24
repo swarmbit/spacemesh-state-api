@@ -21,6 +21,7 @@ type Sink struct {
 	atxSub                 *nats.Subscription
 	transactionsResultSub  *nats.Subscription
 	transactionsCreatedSub *nats.Subscription
+	malfeasanceSub         *nats.Subscription
 }
 
 func NewSink(writeDB *database.WriteDB) *Sink {
@@ -32,7 +33,7 @@ func NewSink(writeDB *database.WriteDB) *Sink {
 	js, _ := nc.JetStream()
 
 	js.AddConsumer("layers", &nats.ConsumerConfig{
-		Durable:        "state-api-process",
+		Durable:        "state-api-process-layers",
 		DeliverSubject: "layers",
 		DeliverGroup:   "state-api-process-layers",
 		AckPolicy:      nats.AckExplicitPolicy,
@@ -54,6 +55,7 @@ func NewSink(writeDB *database.WriteDB) *Sink {
 		AckPolicy:      nats.AckExplicitPolicy,
 		DeliverPolicy:  nats.DeliverLastPolicy,
 	})
+
 	js.AddConsumer("transactions", &nats.ConsumerConfig{
 		Durable:        "state-api-process-transactions-result",
 		DeliverSubject: "transactions.result",
@@ -61,6 +63,7 @@ func NewSink(writeDB *database.WriteDB) *Sink {
 		AckPolicy:      nats.AckExplicitPolicy,
 		DeliverPolicy:  nats.DeliverLastPolicy,
 	})
+
 	js.AddConsumer("transactions", &nats.ConsumerConfig{
 		Durable:        "state-api-process-transactions-created",
 		DeliverSubject: "transactions.created",
@@ -69,24 +72,36 @@ func NewSink(writeDB *database.WriteDB) *Sink {
 		DeliverPolicy:  nats.DeliverLastPolicy,
 	})
 
+	js.AddConsumer("malfeasance", &nats.ConsumerConfig{
+		Durable:        "state-api-process-malfeasance",
+		DeliverSubject: "malfeasance",
+		DeliverGroup:   "state-api-process-malfeasance",
+		AckPolicy:      nats.AckExplicitPolicy,
+		DeliverPolicy:  nats.DeliverLastPolicy,
+	})
+
 	fmt.Println("Connect to nats stream")
-	layersSub, err := js.PullSubscribe("layers", "layers", nats.BindStream("layers"))
+	layersSub, err := js.PullSubscribe("layers", "state-api-process-layers", nats.BindStream("layers"))
 	if err != nil {
 		fmt.Println("Failed to subscribe: ", err)
 	}
-	rewardsSub, err := js.PullSubscribe("rewards", "rewards", nats.BindStream("rewards"))
+	rewardsSub, err := js.PullSubscribe("rewards", "state-api-process-rewards", nats.BindStream("rewards"))
 	if err != nil {
 		fmt.Println("Failed to subscribe: ", err)
 	}
-	atxSub, err := js.PullSubscribe("atx", "atx", nats.BindStream("atx"))
+	atxSub, err := js.PullSubscribe("atx", "state-api-process-atx", nats.BindStream("atx"))
 	if err != nil {
 		fmt.Println("Failed to subscribe: ", err)
 	}
-	transactionsResultSub, err := js.PullSubscribe("transactions.result", "transactions-result", nats.BindStream("transactions"))
+	transactionsResultSub, err := js.PullSubscribe("transactions.result", "state-api-process-transactions-result", nats.BindStream("transactions"))
 	if err != nil {
 		fmt.Println("Failed to subscribe: ", err)
 	}
-	transactionsCreatedSub, err := js.PullSubscribe("transactions.created", "transactions-created", nats.BindStream("transactions"))
+	transactionsCreatedSub, err := js.PullSubscribe("transactions.created", "state-api-process-transactions-created", nats.BindStream("transactions"))
+	if err != nil {
+		fmt.Println("Failed to subscribe: ", err)
+	}
+	malfeasanceSub, err := js.PullSubscribe("malfeasance", "state-api-process-malfeasance", nats.BindStream("malfeasance"))
 	if err != nil {
 		fmt.Println("Failed to subscribe: ", err)
 	}
@@ -96,6 +111,7 @@ func NewSink(writeDB *database.WriteDB) *Sink {
 		atxSub:                 atxSub,
 		transactionsResultSub:  transactionsResultSub,
 		transactionsCreatedSub: transactionsCreatedSub,
+		malfeasanceSub:         malfeasanceSub,
 		WriteDB:                writeDB,
 	}
 }
@@ -178,7 +194,7 @@ func (s *Sink) StartAtxSink() {
 	go func() {
 		for {
 
-			msgs, err := s.atxSub.Fetch(10, nats.MaxWait(2*time.Hour))
+			msgs, err := s.atxSub.Fetch(10, nats.MaxWait(360*time.Hour))
 			if err == nats.ErrTimeout {
 				fmt.Println("Error ", err.Error())
 				continue
@@ -269,6 +285,41 @@ func (s *Sink) StartTransactionCreatedSink() {
 					msg.Nak()
 				} else {
 					fmt.Println("Transaction saved")
+					msg.Ack()
+				}
+			}
+
+		}
+	}()
+}
+
+func (s *Sink) StartMalfeasanceSink() {
+	fmt.Println("Start malfeasance created sink")
+
+	go func() {
+		for {
+
+			msgs, err := s.malfeasanceSub.Fetch(10, nats.MaxWait(8736*time.Hour))
+			if err == nats.ErrTimeout {
+				fmt.Println("Error ", err.Error())
+				continue
+			}
+			for _, msg := range msgs {
+
+				fmt.Println("Malfeasance: ", string(msg.Data))
+				var malfeasance *natsS.Malfeasance
+				errJson := json.Unmarshal(msg.Data, &malfeasance)
+				fmt.Println("Next Malfeasance: ", malfeasance)
+				if errJson != nil {
+					log.Fatal("Error parsing json malfeasance: ", err)
+					continue
+				}
+				saveErr := s.WriteDB.SaveMalfeasance(malfeasance)
+				if saveErr != nil {
+					fmt.Println("Failed to save malfeasance")
+					msg.Nak()
+				} else {
+					fmt.Println("Malfeasance saved")
 					msg.Ack()
 				}
 			}
