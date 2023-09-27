@@ -110,12 +110,14 @@ func (n *NetworkRoutes) fetchNetworkInfo() {
 		return
 	}
 
+	var genisesAccounts int64 = 28
+
 	n.networkInfo.Store(INFO_KEY, &types.NetworkInfo{
 		Epoch:                  epoch.Uint32(),
 		Layer:                  uint64(layer.Layer),
 		EffectiveUnitsCommited: atxEpochTotals.TotalEffectiveNumUnits,
 		CirculatingSupply:      networkInfo.CirculatingSupply,
-		TotalAccounts:          uint64(totalAccounts),
+		TotalAccounts:          uint64(totalAccounts + genisesAccounts),
 		AtxHex:                 hexAtx,
 		AtxBase64:              base64Atx,
 		TotalActiveSmeshers:    uint64(atxEpoch),
