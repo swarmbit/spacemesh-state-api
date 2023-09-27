@@ -47,11 +47,11 @@ type Eligibility struct {
 
 type NetworkInfo struct {
 	Epoch                  uint32                `json:"epoch"`
-	Layer                  int64                 `json:"layer"`
-	EffectiveUnitsCommited int64                 `json:"effectiveUnitsCommited"`
-	CirculatingSupply      int64                 `json:"circulatingSupply"`
-	TotalAccounts          int64                 `json:"totalAccounts"`
-	TotalActiveSmeshers    int64                 `json:"totalActiveSmeshers"`
+	Layer                  uint64                `json:"layer"`
+	EffectiveUnitsCommited uint64                `json:"effectiveUnitsCommited"`
+	CirculatingSupply      uint64                `json:"circulatingSupply"`
+	TotalAccounts          uint64                `json:"totalAccounts"`
+	TotalActiveSmeshers    uint64                `json:"totalActiveSmeshers"`
 	AtxHex                 string                `json:"atxHex"`
 	AtxBase64              string                `json:"atxBase64"`
 	NextEpoch              *NetworkInfoNextEpoch `json:"nextEpoch"`

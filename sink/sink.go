@@ -143,7 +143,7 @@ func (s *Sink) StartRewardsSink() {
 
 				} else {
 					fmt.Println("Reward saved")
-					msg.Ack()
+					msg.AckSync()
 				}
 			}
 		}
@@ -181,7 +181,7 @@ func (s *Sink) StartLayersSink() {
 					msg.Nak()
 				} else {
 					fmt.Println("Layer saved")
-					msg.Ack()
+					msg.AckSync()
 				}
 			}
 		}
@@ -215,7 +215,7 @@ func (s *Sink) StartAtxSink() {
 					msg.Nak()
 				} else {
 					fmt.Println("Atx saved")
-					msg.Ack()
+					msg.AckSync()
 				}
 			}
 
@@ -250,7 +250,7 @@ func (s *Sink) StartTransactionResultSink() {
 					msg.Nak()
 				} else {
 					fmt.Println("Transaction saved")
-					msg.Ack()
+					msg.AckSync()
 				}
 			}
 
@@ -285,7 +285,7 @@ func (s *Sink) StartTransactionCreatedSink() {
 					msg.Nak()
 				} else {
 					fmt.Println("Transaction saved")
-					msg.Ack()
+					msg.AckSync()
 				}
 			}
 
@@ -320,7 +320,7 @@ func (s *Sink) StartMalfeasanceSink() {
 					msg.Nak()
 				} else {
 					fmt.Println("Malfeasance saved")
-					msg.Ack()
+					msg.AckSync()
 				}
 			}
 

@@ -192,6 +192,64 @@ func (m *ReadDB) GetTransactions(account string, skip int64, limit int64, sort i
 	return transactions, nil
 }
 
+func (m *ReadDB) CountAccounts() (int64, error) {
+	accountsColl := m.client.Database(database).Collection(accountsCollection)
+
+	ctx := context.TODO()
+	filter := bson.M{}
+	count, err := accountsColl.CountDocuments(
+		ctx,
+		filter,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (m *ReadDB) CountAtxEpoch(epoch uint64) (int64, error) {
+	atxColl := m.client.Database(database).Collection(atxsCollection)
+	atxResult, err := atxColl.CountDocuments(
+		context.TODO(),
+		bson.D{
+			{Key: "publishepoch", Value: epoch},
+		},
+	)
+	if err != nil {
+		return 0, err
+	}
+	return atxResult, nil
+}
+
+func (m *ReadDB) GetAtxEpoch(epoch uint64) (*types.AtxEpochDoc, error) {
+	atxEpochsColl := m.client.Database(database).Collection(atxsEpochsCollection)
+	atxResult := atxEpochsColl.FindOne(
+		context.TODO(),
+		bson.D{
+			{Key: "_id", Value: epoch},
+		},
+	)
+	doc := &types.AtxEpochDoc{}
+	atxResult.Decode(doc)
+	return doc, nil
+}
+
+func (m *ReadDB) GetNetworkInfo() (*types.NetworkInfoDoc, error) {
+	networkColl := m.client.Database(database).Collection(networkInfoCollection)
+	infoResult := networkColl.FindOne(
+		context.TODO(),
+		bson.D{
+			{Key: "_id", Value: "info"},
+		},
+	)
+	doc := &types.NetworkInfoDoc{}
+	err := infoResult.Decode(doc)
+	if err != nil {
+		return doc, err
+	}
+	return doc, nil
+}
+
 func (m *ReadDB) GetLastProcessedLayer() (*types.LayerDoc, error) {
 	layersColl := m.client.Database(database).Collection(layersCollection)
 

@@ -7,8 +7,9 @@ import (
 
 func AddRoutes(readDB *database.ReadDB, router *gin.Engine) {
 	accountRoutes := NewAccountRoutes(readDB)
+	networkRoutes := NewNetworkRoutes(readDB)
+
 	//smesherRoutes := NewSmesherRoutes(state)
-	//networkRoutes := NewNetworkRoutes(state)
 
 	router.GET("/account/:accountAddress", func(c *gin.Context) {
 		accountRoutes.GetAccount(c)
@@ -26,18 +27,16 @@ func AddRoutes(readDB *database.ReadDB, router *gin.Engine) {
 		accountRoutes.GetAccountRewardsDetails(c)
 	})
 
+	router.GET("/network/info", func(c *gin.Context) {
+		networkRoutes.GetInfo(c)
+	})
+
 	/*
-
-
 		router.GET("/account/:accountAddress/rewards/eligibility", func(c *gin.Context) {
 			accountRoutes.GetAccountRewardsEligibilities(c)
 		})
 
 		router.GET("/smesher/:smesherId/eligibility", func(c *gin.Context) {
 			smesherRoutes.GetSmesherEligibility(c)
-		})
-
-		router.GET("/network/info", func(c *gin.Context) {
-			networkRoutes.GetInfo(c)
 		})*/
 }

@@ -1,30 +1,27 @@
 package route
 
 import (
-	"encoding/base64"
-	"encoding/hex"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/spacemeshos/go-spacemesh/sql"
-	"github.com/swarmbit/spacemesh-state-api/state"
+	"github.com/swarmbit/spacemesh-state-api/database"
+	"github.com/swarmbit/spacemesh-state-api/network"
 	"github.com/swarmbit/spacemesh-state-api/types"
 )
 
 const INFO_KEY = "info"
 
 type NetworkRoutes struct {
-	state       *state.State
-	db          sql.Executor
+	db          *database.ReadDB
 	networkInfo *sync.Map
 }
 
-func NewNetworkRoutes(state *state.State) *NetworkRoutes {
+func NewNetworkRoutes(db *database.ReadDB) *NetworkRoutes {
 	routes := &NetworkRoutes{
-		state:       state,
-		db:          state.DB,
+		db:          db,
 		networkInfo: &sync.Map{},
 	}
 	routes.fetchNetworkInfo()
@@ -54,52 +51,64 @@ func (n *NetworkRoutes) periodicNetworkInfoFetch() {
 }
 
 func (n *NetworkRoutes) fetchNetworkInfo() {
-	epoch, layer, err := n.state.GetCurrentEpoch()
+
+	layer, err := n.db.GetLastProcessedLayer()
 	if err != nil {
-		return
-	}
-	highest, err := n.state.GetHighestAtx()
-	if err != nil {
-		return
-	}
-	effectiveUnitsCommited, err := n.state.GetTotalCommittedForEpoch(epoch - 1)
-	if err != nil {
-		return
-	}
-	effectiveUnitsCommitedNextEpoch, err := n.state.GetTotalCommittedForEpoch(epoch)
-	if err != nil {
-		return
-	}
-	circulatingSupply, err := n.state.GetCirculatingSupply()
-	if err != nil {
-		return
-	}
-	totalAccounts, err := n.state.GetNumberOfAccounts()
-	if err != nil {
-		return
-	}
-	totalActiveSmeshers, err := n.state.GetActiveAtxCount(epoch - 1)
-	if err != nil {
+		fmt.Printf("Failed to get last processed layer: %s", err.Error())
 		return
 	}
 
-	totalActiveSmeshersNextEpoch, err := n.state.GetActiveAtxCount(epoch)
+	epoch := network.GetEpoch(uint64(layer.Layer))
+
+	atxEpoch, err := n.db.CountAtxEpoch(uint64(epoch - 1))
 	if err != nil {
+		fmt.Printf("Failed to count atx epoch: %s", err.Error())
 		return
 	}
+
+	atxNextEpoch, err := n.db.CountAtxEpoch(uint64(epoch))
+	if err != nil {
+		fmt.Printf("Failed to count next atx epoch: %s", err.Error())
+		return
+	}
+
+	totalAccounts, err := n.db.CountAccounts()
+	if err != nil {
+		fmt.Printf("Failed to count accounts: %s", err.Error())
+		return
+	}
+
+	networkInfo, err := n.db.GetNetworkInfo()
+	if err != nil {
+		fmt.Printf("Failed to get network info: %s", err.Error())
+		return
+	}
+
+	atxEpochTotals, err := n.db.GetAtxEpoch(uint64(epoch - 1))
+	if err != nil {
+		fmt.Printf("Failed to get epoch totals: %s", err.Error())
+		return
+	}
+
+	atxNextEpochTotals, err := n.db.GetAtxEpoch(uint64(epoch))
+	if err != nil {
+		fmt.Printf("Failed to get next epoch totals: %s", err.Error())
+		return
+	}
+
 	n.networkInfo.Store(INFO_KEY, &types.NetworkInfo{
 		Epoch:                  epoch.Uint32(),
-		Layer:                  int64(layer),
-		EffectiveUnitsCommited: effectiveUnitsCommited,
-		CirculatingSupply:      circulatingSupply,
-		TotalAccounts:          totalAccounts,
-		AtxHex:                 hex.EncodeToString(highest.Bytes()),
-		AtxBase64:              base64.StdEncoding.EncodeToString(highest.Bytes()),
-		TotalActiveSmeshers:    totalActiveSmeshers,
+		Layer:                  uint64(layer.Layer),
+		EffectiveUnitsCommited: atxEpochTotals.TotalEffectiveNumUnits,
+		CirculatingSupply:      networkInfo.CirculatingSupply,
+		TotalAccounts:          uint64(totalAccounts),
+		//AtxHex:                 hex.EncodeToString(highest.Bytes()),
+		//AtxBase64:              base64.StdEncoding.EncodeToString(highest.Bytes()),
+		TotalActiveSmeshers: uint64(atxEpoch),
 		NextEpoch: &types.NetworkInfoNextEpoch{
 			Epoch:                  epoch.Uint32() + 1,
-			EffectiveUnitsCommited: effectiveUnitsCommitedNextEpoch,
-			TotalActiveSmeshers:    totalActiveSmeshersNextEpoch,
+			EffectiveUnitsCommited: int64(atxNextEpochTotals.TotalEffectiveNumUnits),
+			TotalActiveSmeshers:    atxNextEpoch,
 		},
 	})
 }

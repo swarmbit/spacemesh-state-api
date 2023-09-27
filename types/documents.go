@@ -1,6 +1,7 @@
 package types
 
 type RewardsDoc struct {
+	Id          string `bson:"_id"`
 	NodeId      string `bson:"node_id"`
 	Coinbase    string `bson:"coinbase"`
 	AtxID       string `bson:"atx_id"`
@@ -41,6 +42,12 @@ type AtxDoc struct {
 	Received          int64  `json:"received"`
 }
 
+type AtxEpochDoc struct {
+	ID                     int64  `bson:"_id"`
+	TotalEffectiveNumUnits uint64 `bson:"totalEffectiveNumUnits"`
+	TotalWeight            uint64 `bson:"TotalWeight"`
+}
+
 type TransactionDoc struct {
 	ID              string `bson:"_id"`
 	Status          uint8  `json:"status"`
@@ -53,6 +60,7 @@ type TransactionDoc struct {
 	Layer           uint32 `bson:"layer"`
 	Counter         uint64 `bson:"counter"`
 	Method          uint8  `json:"method"`
+	Complete        bool   `json:"complete"`
 }
 
 type AccountDoc struct {
@@ -61,6 +69,11 @@ type AccountDoc struct {
 	TotalRewards uint64 `bson:"totalRewards"`
 	Fees         uint64 `bson:"fees"`
 	Sent         uint64 `bson:"sent"`
+}
+
+type NetworkInfoDoc struct {
+	Id                string `bson:"_id"`
+	CirculatingSupply uint64 `bson:"circulatingSupply"`
 }
 
 type AggregationTotal struct {

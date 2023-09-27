@@ -57,6 +57,12 @@ func createIndexes(client *mongo.Client) error {
 			},
 			Options: options.Index().SetUnique(false),
 		},
+		{
+			Keys: bson.D{
+				{Key: "layer", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
 	}
 
 	_, err := rewardsColl.Indexes().CreateMany(context.TODO(), rewardsIndexes)
@@ -77,6 +83,12 @@ func createIndexes(client *mongo.Client) error {
 		{
 			Keys: bson.D{
 				{Key: "receiver_account", Value: 1},
+				{Key: "layer", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys: bson.D{
 				{Key: "layer", Value: 1},
 			},
 			Options: options.Index().SetUnique(false),
@@ -102,6 +114,19 @@ func createIndexes(client *mongo.Client) error {
 			Keys: bson.D{
 				{Key: "coinbase", Value: 1},
 				{Key: "layer", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys: bson.D{
+				{Key: "layer", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys: bson.D{
+				{Key: "publishepoch", Value: 1},
+				{Key: "effective_num_units", Value: 1},
 			},
 			Options: options.Index().SetUnique(false),
 		},
@@ -156,34 +181,39 @@ func (m *WriteDB) SaveAtx(atx *nats.Atx) error {
 		if err != nil {
 			return updateResult, err
 		}
-		updateResult, err = atxsEpochsColl.UpdateOne(
-			context.TODO(),
-			bson.D{{Key: "_id", Value: atxDoc.PublishEpoch}},
-			bson.D{{Key: "$inc", Value: bson.D{
-				{Key: "totalEffectiveNumUnits", Value: atx.EffectiveNumUnits},
-				{Key: "totalWeight", Value: weight},
-			}}},
-			options.Update().SetUpsert(true),
-		)
-		if err != nil {
+
+		// only update counts if inserted new ATX
+		if updateResult.UpsertedCount == 1 {
+			updateResult, err = atxsEpochsColl.UpdateOne(
+				context.TODO(),
+				bson.D{{Key: "_id", Value: atxDoc.PublishEpoch}},
+				bson.D{{Key: "$inc", Value: bson.D{
+					{Key: "totalEffectiveNumUnits", Value: atx.EffectiveNumUnits},
+					{Key: "totalWeight", Value: weight},
+				}}},
+				options.Update().SetUpsert(true),
+			)
+			if err != nil {
+				return updateResult, err
+			}
+
+			updateResult, err = nodesColl.UpdateOne(
+				context.TODO(),
+				bson.D{{Key: "_id", Value: atxDoc.NodeID}},
+				bson.D{{Key: "$addToSet", Value: bson.D{
+					{Key: "atxs", Value: bson.D{
+						{Key: "coinbase", Value: atxDoc.Coinbase},
+						{Key: "effectiveNumUnits", Value: atxDoc.EffectiveNumUnits},
+						{Key: "sequence", Value: atxDoc.Sequence},
+						{Key: "weight", Value: atxDoc.Weight},
+						{Key: "publishEpoch", Value: atxDoc.PublishEpoch},
+						{Key: "received", Value: atxDoc.Received},
+					}},
+				}}},
+				options.Update().SetUpsert(true),
+			)
 			return updateResult, err
 		}
-
-		updateResult, err = nodesColl.UpdateOne(
-			context.TODO(),
-			bson.D{{Key: "_id", Value: atxDoc.NodeID}},
-			bson.D{{Key: "$addToSet", Value: bson.D{
-				{Key: "atxs", Value: bson.D{
-					{Key: "coinbase", Value: atxDoc.Coinbase},
-					{Key: "effectiveNumUnits", Value: atxDoc.EffectiveNumUnits},
-					{Key: "sequence", Value: atxDoc.Sequence},
-					{Key: "weight", Value: atxDoc.Weight},
-					{Key: "publishEpoch", Value: atxDoc.PublishEpoch},
-					{Key: "received", Value: atxDoc.Received},
-				}},
-			}}},
-			options.Update().SetUpsert(true),
-		)
 
 		return updateResult, err
 	}
@@ -235,6 +265,7 @@ func (m *WriteDB) SaveTransactions(transaction *nats.Transaction) error {
 			if len(receiver.Bytes()) > 0 {
 				receiverString = receiver.String()
 			}
+
 			transactionDoc = &types.TransactionDoc{
 				ID:              transaction.ID,
 				PrincipaAccount: transaction.Header.Principal,
@@ -247,7 +278,61 @@ func (m *WriteDB) SaveTransactions(transaction *nats.Transaction) error {
 				Amount:          parsedTransaction.GetAmount(),
 				Counter:         parsedTransaction.GetCounter(),
 				GasPrice:        parsedTransaction.GetGasPrice(),
+				Complete:        true,
 			}
+
+			transactionsColl := m.client.Database(database).Collection(transactionsCollection)
+			accountsColl := m.client.Database(database).Collection(accountsCollection)
+
+			updateResult, err := transactionsColl.UpdateOne(
+				context.TODO(),
+				bson.D{{Key: "_id", Value: transaction.ID}, {Key: "complete", Value: false}},
+				bson.D{{Key: "$set", Value: transactionDoc}},
+				options.Update().SetUpsert(true))
+
+			if err != nil {
+				return updateResult, err
+			}
+
+			updated := updateResult.ModifiedCount > 0 || updateResult.UpsertedCount > 0
+
+			if updated && transactionDoc.Amount > 0 {
+				accountsColl := m.client.Database(database).Collection(accountsCollection)
+
+				updateResult, err := accountsColl.UpdateOne(
+					context.TODO(),
+					bson.D{{Key: "_id", Value: transactionDoc.ReceiverAccount}},
+					bson.D{{Key: "$inc", Value: bson.D{
+						{Key: "balance", Value: transactionDoc.Amount},
+						{Key: "received", Value: transactionDoc.Amount},
+					}}},
+					options.Update().SetUpsert(true),
+				)
+				if err != nil {
+					return updateResult, err
+				}
+			}
+
+			if updated {
+
+				fee := transactionDoc.Gas * transactionDoc.GasPrice
+				valueToDeduct := (int64(transactionDoc.Amount) + int64(fee)) * -1
+				updateResult, err = accountsColl.UpdateOne(
+					context.TODO(),
+					bson.D{{Key: "_id", Value: transactionDoc.PrincipaAccount}},
+					bson.D{{Key: "$inc", Value: bson.D{
+						{Key: "balance", Value: valueToDeduct},
+						{Key: "sent", Value: transactionDoc.Amount},
+						{Key: "fees", Value: fee},
+					}}},
+					options.Update().SetUpsert(true),
+				)
+				if err != nil {
+					return updateResult, err
+				}
+			}
+
+			return updateResult, err
 		} else {
 			transactionDoc = &types.TransactionDoc{
 				ID:              transaction.ID,
@@ -257,54 +342,18 @@ func (m *WriteDB) SaveTransactions(transaction *nats.Transaction) error {
 				Layer:           transaction.Header.LayerID,
 				Status:          transaction.Header.Status,
 				Method:          transaction.Header.Method,
+				Complete:        false,
 			}
-		}
 
-		transactionsColl := m.client.Database(database).Collection(transactionsCollection)
-		accountsColl := m.client.Database(database).Collection(accountsCollection)
+			transactionsColl := m.client.Database(database).Collection(transactionsCollection)
 
-		updateResult, err := transactionsColl.UpdateOne(
-			context.TODO(),
-			bson.D{{Key: "_id", Value: transaction.ID}},
-			bson.D{{Key: "$set", Value: transactionDoc}},
-			options.Update().SetUpsert(true))
-		if err != nil {
-			return updateResult, err
-		}
-
-		if transactionDoc.Amount > 0 {
-			updateResult, err = accountsColl.UpdateOne(
+			updateResult, err := transactionsColl.UpdateOne(
 				context.TODO(),
-				bson.D{{Key: "_id", Value: transactionDoc.ReceiverAccount}},
-				bson.D{{Key: "$inc", Value: bson.D{
-					{Key: "balance", Value: transactionDoc.Amount},
-					{Key: "received", Value: transactionDoc.Amount},
-				}}},
-				options.Update().SetUpsert(true),
-			)
-			if err != nil {
-				return updateResult, err
-			}
-		}
-
-		fee := transactionDoc.Gas * transactionDoc.GasPrice
-		valueToDeduct := (int64(transactionDoc.Amount) + int64(fee)) * -1
-
-		updateResult, err = accountsColl.UpdateOne(
-			context.TODO(),
-			bson.D{{Key: "_id", Value: transactionDoc.PrincipaAccount}},
-			bson.D{{Key: "$inc", Value: bson.D{
-				{Key: "balance", Value: valueToDeduct},
-				{Key: "sent", Value: transactionDoc.Amount},
-				{Key: "fees", Value: fee},
-			}}},
-			options.Update().SetUpsert(true),
-		)
-		if err != nil {
+				bson.D{{Key: "_id", Value: transaction.ID}},
+				bson.D{{Key: "$set", Value: transactionDoc}},
+				options.Update().SetUpsert(true))
 			return updateResult, err
 		}
-
-		return updateResult, err
 	}
 
 	// Execute the operations in a transaction
@@ -328,7 +377,8 @@ func (m *WriteDB) SaveReward(reward *nats.Reward) error {
 		accountsColl := m.client.Database(database).Collection(accountsCollection)
 		networkInfoColl := m.client.Database(database).Collection(networkInfoCollection)
 
-		rewardDoc := types.RewardsDoc{
+		rewardDoc := &types.RewardsDoc{
+			Id:          reward.ID,
 			Coinbase:    reward.Coinbase,
 			LayerReward: int64(reward.LayerReward),
 			TotalReward: int64(reward.Total),
@@ -337,32 +387,40 @@ func (m *WriteDB) SaveReward(reward *nats.Reward) error {
 			Layer:       int64(reward.Layer),
 		}
 
-		insertResut, err := rewardsColl.InsertOne(context.TODO(), rewardDoc)
-		if err != nil {
-			return insertResut, err
-		}
-
-		updateResult, err := accountsColl.UpdateOne(
+		updateResult, err := rewardsColl.UpdateOne(
 			context.TODO(),
-			bson.D{{Key: "_id", Value: reward.Coinbase}},
-			bson.D{{Key: "$inc", Value: bson.D{
-				{Key: "totalRewards", Value: reward.Total},
-				{Key: "balance", Value: reward.Total},
-			}}},
-			options.Update().SetUpsert(true),
-		)
+			bson.D{{Key: "_id", Value: rewardDoc.Id}},
+			bson.D{{Key: "$set", Value: rewardDoc}},
+			options.Update().SetUpsert(true))
 		if err != nil {
 			return updateResult, err
 		}
 
-		updateResult, err = networkInfoColl.UpdateOne(
-			context.TODO(),
-			bson.D{{Key: "_id", Value: "info"}},
-			bson.D{{Key: "$inc", Value: bson.D{
-				{Key: "circulatingSupply", Value: reward.Total},
-			}}},
-			options.Update().SetUpsert(true),
-		)
+		// only update counts if inserted new reward
+		if updateResult.UpsertedCount == 1 {
+			updateResult, err = accountsColl.UpdateOne(
+				context.TODO(),
+				bson.D{{Key: "_id", Value: reward.Coinbase}},
+				bson.D{{Key: "$inc", Value: bson.D{
+					{Key: "totalRewards", Value: reward.Total},
+					{Key: "balance", Value: reward.Total},
+				}}},
+				options.Update().SetUpsert(true),
+			)
+			if err != nil {
+				return updateResult, err
+			}
+
+			updateResult, err = networkInfoColl.UpdateOne(
+				context.TODO(),
+				bson.D{{Key: "_id", Value: "info"}},
+				bson.D{{Key: "$inc", Value: bson.D{
+					{Key: "circulatingSupply", Value: reward.Total},
+				}}},
+				options.Update().SetUpsert(true),
+			)
+			return updateResult, err
+		}
 		return updateResult, err
 	}
 
