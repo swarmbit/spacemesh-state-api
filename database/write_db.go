@@ -465,16 +465,3 @@ func safeMul(a, b uint64) uint64 {
 	}
 	return c
 }
-
-func isDuplicateKeyError(err error) bool {
-	if err != nil {
-		if writeException, ok := err.(mongo.WriteException); ok {
-			for _, e := range writeException.WriteErrors {
-				if e.Code == 11000 {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
