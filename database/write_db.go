@@ -67,7 +67,7 @@ func createIndexes(client *mongo.Client) error {
 
 	_, err := rewardsColl.Indexes().CreateMany(context.TODO(), rewardsIndexes)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
@@ -97,7 +97,7 @@ func createIndexes(client *mongo.Client) error {
 
 	_, err = transactionsColl.Indexes().CreateMany(context.TODO(), transactionsIndexes)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
@@ -105,21 +105,28 @@ func createIndexes(client *mongo.Client) error {
 	atxIndexes := []mongo.IndexModel{
 		{
 			Keys: bson.D{
+				{Key: "_id", Value: 1},
+				{Key: "publishepoch", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys: bson.D{
 				{Key: "node_id", Value: 1},
-				{Key: "layer", Value: 1},
+				{Key: "publishepoch", Value: 1},
 			},
 			Options: options.Index().SetUnique(false),
 		},
 		{
 			Keys: bson.D{
 				{Key: "coinbase", Value: 1},
-				{Key: "layer", Value: 1},
+				{Key: "publishepoch", Value: 1},
 			},
 			Options: options.Index().SetUnique(false),
 		},
 		{
 			Keys: bson.D{
-				{Key: "layer", Value: 1},
+				{Key: "publishepoch", Value: 1},
 			},
 			Options: options.Index().SetUnique(false),
 		},
@@ -134,7 +141,7 @@ func createIndexes(client *mongo.Client) error {
 
 	_, err = atxColl.Indexes().CreateMany(context.TODO(), atxIndexes)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
@@ -220,7 +227,7 @@ func (m *WriteDB) SaveAtx(atx *nats.Atx) error {
 
 	// Execute the operations in a transaction
 	if _, err := session.WithTransaction(context.TODO(), callback); err != nil {
-		log.Fatalf("Atx transaction failed: %v", err)
+		log.Println("Atx transaction failed: %v", err)
 	}
 
 	fmt.Println("Atx transaction succeeded")
@@ -284,17 +291,25 @@ func (m *WriteDB) SaveTransactions(transaction *nats.Transaction) error {
 			transactionsColl := m.client.Database(database).Collection(transactionsCollection)
 			accountsColl := m.client.Database(database).Collection(accountsCollection)
 
-			updateResult, err := transactionsColl.UpdateOne(
+			previousTransaction := transactionsColl.FindOneAndUpdate(
 				context.TODO(),
-				bson.D{{Key: "_id", Value: transaction.ID}, {Key: "complete", Value: false}},
+				bson.D{{Key: "_id", Value: transaction.ID}},
 				bson.D{{Key: "$set", Value: transactionDoc}},
-				options.Update().SetUpsert(true))
+				options.FindOneAndUpdate().SetUpsert(true))
 
-			if err != nil {
-				return updateResult, err
+			err = previousTransaction.Err()
+			if err != nil && err != mongo.ErrNoDocuments {
+				return previousTransaction, err
 			}
 
-			updated := updateResult.ModifiedCount > 0 || updateResult.UpsertedCount > 0
+			var amount uint64 = 0
+			if err == nil {
+				previousTransactionDoc := &types.Transaction{}
+				previousTransaction.Decode(previousTransactionDoc)
+				amount = transactionDoc.Amount
+			}
+
+			updated := amount == 0
 
 			if updated && transactionDoc.Amount > 0 {
 				accountsColl := m.client.Database(database).Collection(accountsCollection)
@@ -317,7 +332,7 @@ func (m *WriteDB) SaveTransactions(transaction *nats.Transaction) error {
 
 				fee := transactionDoc.Gas * transactionDoc.GasPrice
 				valueToDeduct := (int64(transactionDoc.Amount) + int64(fee)) * -1
-				updateResult, err = accountsColl.UpdateOne(
+				updateResult, err := accountsColl.UpdateOne(
 					context.TODO(),
 					bson.D{{Key: "_id", Value: transactionDoc.PrincipaAccount}},
 					bson.D{{Key: "$inc", Value: bson.D{
@@ -332,7 +347,7 @@ func (m *WriteDB) SaveTransactions(transaction *nats.Transaction) error {
 				}
 			}
 
-			return updateResult, err
+			return previousTransaction, err
 		} else {
 			transactionDoc = &types.TransactionDoc{
 				ID:              transaction.ID,
@@ -358,7 +373,7 @@ func (m *WriteDB) SaveTransactions(transaction *nats.Transaction) error {
 
 	// Execute the operations in a transaction
 	if _, err := session.WithTransaction(context.TODO(), callback); err != nil {
-		log.Fatalf("Transaction failed: %v", err)
+		log.Println("Transaction failed: %v", err)
 	}
 
 	fmt.Println("Transaction succeeded")
@@ -426,7 +441,7 @@ func (m *WriteDB) SaveReward(reward *nats.Reward) error {
 
 	// Execute the operations in a transaction
 	if _, err := session.WithTransaction(context.TODO(), callback); err != nil {
-		log.Fatalf("Rewards transaction failed: %v", err)
+		log.Println("Rewards transaction failed: %v", err)
 	}
 
 	fmt.Println("Rewards transaction succeeded")
@@ -449,4 +464,17 @@ func safeMul(a, b uint64) uint64 {
 		panic("uint64 overflow")
 	}
 	return c
+}
+
+func isDuplicateKeyError(err error) bool {
+	if err != nil {
+		if writeException, ok := err.(mongo.WriteException); ok {
+			for _, e := range writeException.WriteErrors {
+				if e.Code == 11000 {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }

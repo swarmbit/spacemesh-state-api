@@ -221,6 +221,64 @@ func (m *ReadDB) CountAtxEpoch(epoch uint64) (int64, error) {
 	return atxResult, nil
 }
 
+func (m *ReadDB) GetAtxForEpoch(epoch uint64) ([]*types.AtxDoc, error) {
+	atxColl := m.client.Database(database).Collection(atxsCollection)
+
+	sortDoc := bson.D{
+		{Key: "_id", Value: 1},
+		{Key: "publishepoch", Value: 1},
+	}
+
+	findOptions := options.Find()
+	findOptions.SetSort(sortDoc)
+
+	ctx := context.TODO()
+	filter := bson.M{
+		"publishepoch": epoch,
+	}
+	cursor, err := atxColl.Find(
+		ctx,
+		filter,
+		findOptions,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var atx []*types.AtxDoc
+	if err = cursor.All(ctx, &atx); err != nil {
+		return nil, err
+	}
+	return atx, nil
+}
+
+func (m *ReadDB) GetMalfeasanceNodes() ([]*types.NodeDoc, error) {
+	nodesColl := m.client.Database(database).Collection(nodesCollection)
+
+	findOptions := options.Find()
+	findOptions.SetSort(bson.M{"publishepoch": -1})
+
+	ctx := context.TODO()
+	filter := bson.M{"malfeasance": bson.M{"$exists": true}}
+
+	cursor, err := nodesColl.Find(
+		ctx,
+		filter,
+		findOptions,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var node []*types.NodeDoc
+	if err = cursor.All(ctx, &node); err != nil {
+		return nil, err
+	}
+	return node, nil
+}
+
 func (m *ReadDB) GetAtxEpoch(epoch uint64) (*types.AtxEpochDoc, error) {
 	atxEpochsColl := m.client.Database(database).Collection(atxsEpochsCollection)
 	atxResult := atxEpochsColl.FindOne(

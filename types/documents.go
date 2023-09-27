@@ -16,8 +16,13 @@ type LayerDoc struct {
 }
 
 type NodeDoc struct {
-	ID   string       `bson:"_id"`
-	Atxs []NodeAtxDoc `bson:"atxs"`
+	ID          string             `bson:"_id"`
+	Atxs        []NodeAtxDoc       `bson:"atxs"`
+	Malfeasance MalfeasanceNodeDoc `bson:"malfeasance"`
+}
+
+type MalfeasanceNodeDoc struct {
+	Received int64 `json:"received"`
 }
 
 type NodeAtxDoc struct {
