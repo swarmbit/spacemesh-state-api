@@ -6,16 +6,13 @@ import (
 	"log"
 	"time"
 
-	natsS "github.com/spacemeshos/go-spacemesh/nats"
-
 	"github.com/nats-io/nats.go"
+	natsS "github.com/spacemeshos/go-spacemesh/nats"
 	"github.com/swarmbit/spacemesh-state-api/database"
-	"github.com/swarmbit/spacemesh-state-api/node"
 )
 
 type Sink struct {
 	WriteDB                *database.WriteDB
-	NodeDB                 *node.NodeDB
 	layersSub              *nats.Subscription
 	rewardsSub             *nats.Subscription
 	atxSub                 *nats.Subscription
@@ -244,7 +241,7 @@ func (s *Sink) StartTransactionResultSink() {
 					log.Fatal("Error parsing json transaction: ", err)
 					continue
 				}
-				saveErr := s.WriteDB.SaveTransactions(transaction)
+				saveErr := s.WriteDB.SaveTransactions(transaction, true)
 				if saveErr != nil {
 					fmt.Println("Failed to save transaction")
 					msg.Nak()
@@ -279,7 +276,7 @@ func (s *Sink) StartTransactionCreatedSink() {
 					log.Fatal("Error parsing json transaction: ", err)
 					continue
 				}
-				saveErr := s.WriteDB.SaveTransactions(transaction)
+				saveErr := s.WriteDB.SaveTransactions(transaction, false)
 				if saveErr != nil {
 					fmt.Println("Failed to save transaction")
 					msg.Nak()

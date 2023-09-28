@@ -50,7 +50,7 @@ type AtxDoc struct {
 type AtxEpochDoc struct {
 	ID                     int64  `bson:"_id"`
 	TotalEffectiveNumUnits uint64 `bson:"totalEffectiveNumUnits"`
-	TotalWeight            uint64 `bson:"TotalWeight"`
+	TotalWeight            uint64 `bson:"totalWeight"`
 }
 
 type TransactionDoc struct {
@@ -83,4 +83,9 @@ type NetworkInfoDoc struct {
 
 type AggregationTotal struct {
 	TotalSum int64 `bson:"totalSum"`
+}
+
+type AggregationAtxTotals struct {
+	TotalWeight            int64 `bson:"totalWeight"`
+	TotalEffectiveNumUnits int64 `bson:"totalEffectiveNumUnits"`
 }

@@ -14,12 +14,14 @@ import (
 )
 
 type AccountRoutes struct {
-	db *database.ReadDB
+	db           *database.ReadDB
+	networkUtils *network.NetworkUtils
 }
 
-func NewAccountRoutes(readDB *database.ReadDB) *AccountRoutes {
+func NewAccountRoutes(readDB *database.ReadDB, networkUtils *network.NetworkUtils) *AccountRoutes {
 	return &AccountRoutes{
-		db: readDB,
+		db:           readDB,
+		networkUtils: networkUtils,
 	}
 }
 
@@ -150,6 +152,7 @@ func (a *AccountRoutes) GetAccountTransactions(c *gin.Context) {
 	offsetStr := c.DefaultQuery("offset", "0")
 	limitStr := c.DefaultQuery("limit", "20")
 	sortStr := c.DefaultQuery("sort", "asc")
+	completeStr := c.DefaultQuery("complete", "true")
 
 	offset, err := strconv.Atoi(offsetStr)
 	if err != nil {
@@ -180,6 +183,8 @@ func (a *AccountRoutes) GetAccountTransactions(c *gin.Context) {
 		sort = 1
 	}
 
+	complete := completeStr == "true"
+
 	accountAddress := c.Param("accountAddress")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -189,7 +194,7 @@ func (a *AccountRoutes) GetAccountTransactions(c *gin.Context) {
 		return
 	}
 
-	transactions, errRewards := a.db.GetTransactions(accountAddress, int64(offset), int64(limit), sort)
+	transactions, errRewards := a.db.GetTransactions(accountAddress, int64(offset), int64(limit), sort, complete)
 	count, errCount := a.db.CountTransactions(accountAddress)
 
 	if errRewards != nil || errCount != nil {
@@ -242,7 +247,7 @@ func (a *AccountRoutes) GetAccountRewardsDetails(c *gin.Context) {
 		return
 	}
 
-	epoch := network.GetEpoch(uint64(layer.Layer))
+	epoch := a.networkUtils.GetEpoch(uint64(layer.Layer))
 
 	account, err := a.db.GetAccount(accountAddress)
 	if err != nil {
@@ -283,19 +288,10 @@ func (a *AccountRoutes) GetAccountRewardsDetails(c *gin.Context) {
 	})
 }
 
-/*
 func (a *AccountRoutes) GetAccountRewardsEligibilities(c *gin.Context) {
 	accountAddress := c.Param("accountAddress")
-	address, err := sTypes.StringToAddress(accountAddress)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status": "Bad Request",
-			"error":  "Wrong account address format",
-		})
-		return
-	}
 
-	currentEpoch, _, err := a.state.GetCurrentEpoch()
+	layer, err := a.db.GetLastProcessedLayer()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status": "Internal Error",
@@ -304,86 +300,38 @@ func (a *AccountRoutes) GetAccountRewardsEligibilities(c *gin.Context) {
 		return
 	}
 
-	activeAtxChannel := make(chan []*types.NodeSmesher)
-	activeAtxErrChannel := make(chan error)
-	go func(resultChan chan<- []*types.NodeSmesher, errChan chan<- error) {
-		activeAtx, err := a.state.GetActiveAtxPerAddress(currentEpoch-1, address)
-		if err != nil {
-			errChan <- err
-		} else {
-			resultChan <- activeAtx
-		}
-	}(activeAtxChannel, activeAtxErrChannel)
+	epoch := a.networkUtils.GetEpoch(uint64(layer.Layer))
 
-	var activeAtxResult []*types.NodeSmesher
-
-	select {
-	case activeAtxResult = <-activeAtxChannel:
-	case <-activeAtxErrChannel:
+	accountAtx, err := a.db.GetAtxWeightAccount(accountAddress, uint64(epoch-1))
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"status": "Internal server error",
-			"error":  "Failed get smeshers",
+			"status": "Internal Error",
+			"error":  "Failed to get account weight",
 		})
 		return
 	}
 
-	eligibilities := make([]*types.Eligibility, len(activeAtxResult))
-	eligibilityChannel := make(chan *EligibilityResult, len(activeAtxResult))
-
-	for _, atx := range activeAtxResult {
-		go func(results chan<- *EligibilityResult, atx *types.NodeSmesher) {
-			count, err := a.state.GetEligibilityCount(atx.NodeID)
-			if err != nil && count == -1 {
-				results <- &EligibilityResult{
-					Err: err,
-				}
-			} else if err != nil {
-				results <- &EligibilityResult{
-					Err: err,
-				}
-			} else {
-				predictedRewards, err := a.state.GetLatestAVGLayerReward()
-				if err != nil {
-					results <- &EligibilityResult{
-						Err: err,
-					}
-				} else {
-					results <- &EligibilityResult{
-						Value: &types.Eligibility{
-							Address:           accountAddress,
-							EffectiveNumUnits: atx.EffectiveNumUnits,
-							Count:             count,
-							PredictedRewards:  predictedRewards * uint64(count),
-							SmesherId:         atx.NodeID.String(),
-						},
-						Err: nil,
-					}
-				}
-
-			}
-
-		}(eligibilityChannel, atx)
+	atxEpoch, err := a.db.GetAtxEpoch(uint64(epoch - 1))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status": "Internal Error",
+			"error":  "Failed to get total weight",
+		})
+		return
 	}
 
-	for i := 0; i < len(activeAtxResult); i++ {
-		result := <-eligibilityChannel
-		if result.Err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"status": "Internal server error",
-				"error":  "Failed get eligibilities",
-			})
-			return
-		} else {
-			eligibilities[i] = result.Value
-		}
+	eligibilityCount, err := a.networkUtils.GetNumberOfSlots(uint64(accountAtx.TotalWeight), atxEpoch.TotalWeight)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status": "Internal Error",
+			"error":  "Failed to get eligibility",
+		})
+		return
 	}
 
-	c.JSON(200, eligibilities)
+	c.JSON(200, &types.Eligibility{
+		Address:           accountAddress,
+		Count:             eligibilityCount,
+		EffectiveNumUnits: accountAtx.TotalEffectiveNumUnits,
+	})
 }
-
-type EligibilityResult struct {
-	Value *types.Eligibility
-	Err   error
-}
-
-*/

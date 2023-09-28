@@ -160,7 +160,46 @@ func (m *ReadDB) GetRewards(account string, skip int64, limit int64, sort int8) 
 	return rewards, nil
 }
 
-func (m *ReadDB) GetTransactions(account string, skip int64, limit int64, sort int8) ([]*types.TransactionDoc, error) {
+func (m *ReadDB) GetAtxWeightAccount(account string, epoch uint64) (*types.AggregationAtxTotals, error) {
+	atxColl := m.client.Database(database).Collection(atxsCollection)
+
+	match := bson.D{
+		{Key: "$match", Value: bson.D{
+			{Key: "coinbase", Value: account},
+			{Key: "publishepoch", Value: epoch},
+		}},
+	}
+
+	group := bson.D{
+		{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: nil},
+			{Key: "totalWeight", Value: bson.D{{Key: "$sum", Value: "$weight"}}},
+			{Key: "totalEffectiveNumUnits", Value: bson.D{{Key: "$sum", Value: "$effective_num_units"}}},
+		}},
+	}
+
+	cursor, err := atxColl.Aggregate(
+		context.TODO(),
+		mongo.Pipeline{match, group},
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var results []*types.AggregationAtxTotals
+	if err = cursor.All(context.TODO(), &results); err != nil {
+		return nil, err
+	}
+
+	if len(results) > 0 {
+		return results[0], nil
+	}
+
+	return &types.AggregationAtxTotals{}, nil
+}
+
+func (m *ReadDB) GetTransactions(account string, skip int64, limit int64, sort int8, complete bool) ([]*types.TransactionDoc, error) {
 	transactionsColl := m.client.Database(database).Collection(transactionsCollection)
 
 	findOptions := options.Find()
@@ -171,8 +210,8 @@ func (m *ReadDB) GetTransactions(account string, skip int64, limit int64, sort i
 	ctx := context.TODO()
 	filter := bson.M{
 		"$or": []bson.M{
-			{"principal_account": account},
-			{"receiver_account": account},
+			{"principal_account": account, "complete": complete},
+			{"receiver_account": account, "complete": complete},
 		},
 	}
 	cursor, err := transactionsColl.Find(
@@ -316,7 +355,9 @@ func (m *ReadDB) GetLastProcessedLayer() (*types.LayerDoc, error) {
 	findOptions.SetSort(bson.M{"_id": -1})
 
 	ctx := context.TODO()
-	filter := bson.M{}
+	filter := bson.M{
+		"status": 3,
+	}
 	cursor, err := layersColl.Find(
 		ctx,
 		filter,

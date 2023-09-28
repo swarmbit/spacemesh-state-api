@@ -149,14 +149,18 @@ func createIndexes(client *mongo.Client) error {
 }
 
 func (m *WriteDB) SaveLayer(layer *nats.LayerUpdate) error {
-	layersColl := m.client.Database(database).Collection(layersCollection)
-	_, err := layersColl.UpdateOne(
-		context.TODO(),
-		bson.D{{Key: "_id", Value: layer.LayerID}},
-		bson.D{{Key: "$set", Value: bson.D{{Key: "status", Value: layer.Status}}}},
-		options.Update().SetUpsert(true),
-	)
-	return err
+	// only store processed layers
+	if layer.LayerID > 0 {
+		layersColl := m.client.Database(database).Collection(layersCollection)
+		_, err := layersColl.UpdateOne(
+			context.TODO(),
+			bson.D{{Key: "_id", Value: layer.LayerID}},
+			bson.D{{Key: "$set", Value: bson.D{{Key: "status", Value: layer.Status}}}},
+			options.Update().SetUpsert(true),
+		)
+		return err
+	}
+	return nil
 }
 
 func (m *WriteDB) SaveAtx(atx *nats.Atx) error {
@@ -252,14 +256,14 @@ func (m *WriteDB) SaveMalfeasance(malfeasance *nats.Malfeasance) error {
 	return err
 }
 
-func (m *WriteDB) SaveTransactions(transaction *nats.Transaction) error {
+func (m *WriteDB) SaveTransactions(transaction *nats.Transaction, result bool) error {
 	session, err := m.client.StartSession()
 	defer session.EndSession(context.TODO())
 
 	callback := func(sessionContext mongo.SessionContext) (interface{}, error) {
 
 		var transactionDoc *types.TransactionDoc
-		if len(transaction.Raw) > 0 {
+		if result {
 
 			decoder := scale.NewDecoder(bytes.NewReader(transaction.Raw))
 			parsedTransaction, err := transactionparser.Parse(decoder, transaction.Raw, uint32(transaction.Header.Method))

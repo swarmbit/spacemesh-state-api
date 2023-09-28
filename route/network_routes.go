@@ -17,14 +17,16 @@ import (
 const INFO_KEY = "info"
 
 type NetworkRoutes struct {
-	db          *database.ReadDB
-	networkInfo *sync.Map
+	db           *database.ReadDB
+	networkUtils *network.NetworkUtils
+	networkInfo  *sync.Map
 }
 
-func NewNetworkRoutes(db *database.ReadDB) *NetworkRoutes {
+func NewNetworkRoutes(db *database.ReadDB, networkUtils *network.NetworkUtils) *NetworkRoutes {
 	routes := &NetworkRoutes{
-		db:          db,
-		networkInfo: &sync.Map{},
+		db:           db,
+		networkUtils: networkUtils,
+		networkInfo:  &sync.Map{},
 	}
 	routes.fetchNetworkInfo()
 	routes.periodicNetworkInfoFetch()
@@ -60,7 +62,7 @@ func (n *NetworkRoutes) fetchNetworkInfo() {
 		return
 	}
 
-	epoch := network.GetEpoch(uint64(layer.Layer))
+	epoch := n.networkUtils.GetEpoch(uint64(layer.Layer))
 
 	atxEpoch, err := n.db.CountAtxEpoch(uint64(epoch - 1))
 	if err != nil {
