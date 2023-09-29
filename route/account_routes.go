@@ -68,6 +68,7 @@ func (a *AccountRoutes) GetAccount(c *gin.Context) {
 		Address:              accountAddress,
 		TotalRewards:         account.TotalRewards,
 		NumberOfTransactions: numberOfTransactions,
+		Counter:              numberOfTransactions,
 		NumberOfRewards:      numberOfRewards,
 	})
 }

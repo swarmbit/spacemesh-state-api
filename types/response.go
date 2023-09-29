@@ -4,6 +4,7 @@ type Account struct {
 	Balance              uint64 `json:"balance"`
 	BalanceDisplay       string `json:"balanceDisplay"`
 	NumberOfTransactions int64  `json:"numberOfTransactions"`
+	Counter              int64  `json:"counter"`
 	NumberOfRewards      int64  `json:"numberOfRewards"`
 	TotalRewards         uint64 `json:"totalRewards"`
 	Address              string `json:"address"`

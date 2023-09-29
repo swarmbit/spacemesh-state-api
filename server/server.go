@@ -14,7 +14,7 @@ import (
 
 func StartServer() {
 
-	connection := "mongodb://spacemesh:<password>@spacemesh-mongodb-svc.spacemesh.svc.cluster.local:27017/admin?replicaSet=spacemesh-mongodb&authMechanism=SCRAM-SHA-256"
+	connection := "mongodb://spacemesh:<>@spacemesh-mongodb-svc.spacemesh.svc.cluster.local:27017/admin?replicaSet=spacemesh-mongodb&authMechanism=SCRAM-SHA-256"
 	writeDB, err := database.NewWriteDB(connection)
 	if err != nil {
 		panic("Failed to open document write db")
