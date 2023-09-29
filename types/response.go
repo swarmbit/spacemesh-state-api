@@ -1,10 +1,13 @@
 package types
 
 type Account struct {
-	Balance        int64  `json:"balance"`
-	BalanceDisplay string `json:"balanceDisplay"`
-	Counter        int64  `json:"counter"`
-	Address        string `json:"address"`
+	Balance              uint64 `json:"balance"`
+	BalanceDisplay       string `json:"balanceDisplay"`
+	NumberOfTransactions int64  `json:"numberOfTransactions"`
+	Counter              int64  `json:"counter"`
+	NumberOfRewards      int64  `json:"numberOfRewards"`
+	TotalRewards         uint64 `json:"totalRewards"`
+	Address              string `json:"address"`
 }
 
 type Reward struct {
@@ -14,6 +17,18 @@ type Reward struct {
 	SmesherId      string `json:"smesherId"`
 	Time           string `json:"time"`
 	Timestamp      int64  `json:"timestamp"`
+}
+
+type Transaction struct {
+	ID              string `bson:"_id"`
+	Status          uint8  `json:"status"`
+	PrincipaAccount string `bson:"principal_account"`
+	ReceiverAccount string `bson:"receiver_account"`
+	Fee             uint64 `bson:"fee"`
+	Amount          uint64 `bson:"amount"`
+	Layer           uint32 `bson:"layer"`
+	Counter         uint64 `bson:"counter"`
+	Method          string `json:"method"`
 }
 
 type RewardDetails struct {
@@ -26,18 +41,17 @@ type RewardDetails struct {
 type Eligibility struct {
 	Address           string `json:"address"`
 	Count             int32  `json:"count"`
-	SmesherId         string `json:"smesherId"`
 	EffectiveNumUnits int64  `json:"effectiveNumUnits"`
 	PredictedRewards  uint64 `json:"predictedRewards"`
 }
 
 type NetworkInfo struct {
 	Epoch                  uint32                `json:"epoch"`
-	Layer                  int64                 `json:"layer"`
-	EffectiveUnitsCommited int64                 `json:"effectiveUnitsCommited"`
-	CirculatingSupply      int64                 `json:"circulatingSupply"`
-	TotalAccounts          int64                 `json:"totalAccounts"`
-	TotalActiveSmeshers    int64                 `json:"totalActiveSmeshers"`
+	Layer                  uint64                `json:"layer"`
+	EffectiveUnitsCommited uint64                `json:"effectiveUnitsCommited"`
+	CirculatingSupply      uint64                `json:"circulatingSupply"`
+	TotalAccounts          uint64                `json:"totalAccounts"`
+	TotalActiveSmeshers    uint64                `json:"totalActiveSmeshers"`
 	AtxHex                 string                `json:"atxHex"`
 	AtxBase64              string                `json:"atxBase64"`
 	NextEpoch              *NetworkInfoNextEpoch `json:"nextEpoch"`

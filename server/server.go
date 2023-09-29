@@ -7,17 +7,34 @@ import (
 	"os/signal"
 
 	"github.com/gin-gonic/gin"
+	"github.com/swarmbit/spacemesh-state-api/database"
 	"github.com/swarmbit/spacemesh-state-api/route"
-	"github.com/swarmbit/spacemesh-state-api/state"
+	"github.com/swarmbit/spacemesh-state-api/sink"
 )
 
 func StartServer() {
 
-	state := state.NewState()
+	connection := "mongodb://spacemesh:<>@spacemesh-mongodb-svc.spacemesh.svc.cluster.local:27017/admin?replicaSet=spacemesh-mongodb&authMechanism=SCRAM-SHA-256"
+	writeDB, err := database.NewWriteDB(connection)
+	if err != nil {
+		panic("Failed to open document write db")
+	}
+	readDB, err := database.NewReadDB(connection)
+	if err != nil {
+		panic("Failed to open document read db")
+	}
+
+	sink := sink.NewSink(writeDB)
+	sink.StartRewardsSink()
+	sink.StartLayersSink()
+	sink.StartAtxSink()
+	sink.StartTransactionCreatedSink()
+	sink.StartTransactionResultSink()
+	sink.StartMalfeasanceSink()
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
-	route.AddRoutes(state, router)
+	route.AddRoutes(readDB, router)
 
 	server := &http.Server{
 		Addr:    ":8080",
@@ -29,7 +46,8 @@ func StartServer() {
 
 	go func() {
 		<-quit
-		state.DBInstance.Close()
+		writeDB.CloseWrite()
+		readDB.CloseRead()
 		log.Println("receive interrupt signal")
 		if err := server.Close(); err != nil {
 			log.Fatal("Server Close:", err)

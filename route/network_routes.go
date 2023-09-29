@@ -3,29 +3,30 @@ package route
 import (
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/spacemeshos/go-spacemesh/sql"
-	"github.com/swarmbit/spacemesh-state-api/state"
+	"github.com/swarmbit/spacemesh-state-api/database"
+	"github.com/swarmbit/spacemesh-state-api/network"
 	"github.com/swarmbit/spacemesh-state-api/types"
 )
 
 const INFO_KEY = "info"
 
 type NetworkRoutes struct {
-	state       *state.State
-	db          sql.Executor
-	networkInfo *sync.Map
+	db           *database.ReadDB
+	networkUtils *network.NetworkUtils
+	networkInfo  *sync.Map
 }
 
-func NewNetworkRoutes(state *state.State) *NetworkRoutes {
+func NewNetworkRoutes(db *database.ReadDB, networkUtils *network.NetworkUtils) *NetworkRoutes {
 	routes := &NetworkRoutes{
-		state:       state,
-		db:          state.DB,
-		networkInfo: &sync.Map{},
+		db:           db,
+		networkUtils: networkUtils,
+		networkInfo:  &sync.Map{},
 	}
 	routes.fetchNetworkInfo()
 	routes.periodicNetworkInfoFetch()
@@ -54,52 +55,120 @@ func (n *NetworkRoutes) periodicNetworkInfoFetch() {
 }
 
 func (n *NetworkRoutes) fetchNetworkInfo() {
-	epoch, layer, err := n.state.GetCurrentEpoch()
+
+	layer, err := n.db.GetLastProcessedLayer()
 	if err != nil {
-		return
-	}
-	highest, err := n.state.GetHighestAtx()
-	if err != nil {
-		return
-	}
-	effectiveUnitsCommited, err := n.state.GetTotalCommittedForEpoch(epoch - 1)
-	if err != nil {
-		return
-	}
-	effectiveUnitsCommitedNextEpoch, err := n.state.GetTotalCommittedForEpoch(epoch)
-	if err != nil {
-		return
-	}
-	circulatingSupply, err := n.state.GetCirculatingSupply()
-	if err != nil {
-		return
-	}
-	totalAccounts, err := n.state.GetNumberOfAccounts()
-	if err != nil {
-		return
-	}
-	totalActiveSmeshers, err := n.state.GetActiveAtxCount(epoch - 1)
-	if err != nil {
+		fmt.Printf("Failed to get last processed layer: %s", err.Error())
 		return
 	}
 
-	totalActiveSmeshersNextEpoch, err := n.state.GetActiveAtxCount(epoch)
+	epoch := n.networkUtils.GetEpoch(uint64(layer.Layer))
+
+	atxEpoch, err := n.db.CountAtxEpoch(uint64(epoch - 1))
 	if err != nil {
+		fmt.Printf("Failed to count atx epoch: %s", err.Error())
 		return
 	}
+
+	atxNextEpoch, err := n.db.CountAtxEpoch(uint64(epoch))
+	if err != nil {
+		fmt.Printf("Failed to count next atx epoch: %s", err.Error())
+		return
+	}
+
+	totalAccounts, err := n.db.CountAccounts()
+	if err != nil {
+		fmt.Printf("Failed to count accounts: %s", err.Error())
+		return
+	}
+
+	networkInfo, err := n.db.GetNetworkInfo()
+	if err != nil {
+		fmt.Printf("Failed to get network info: %s", err.Error())
+		return
+	}
+
+	atxEpochTotals, err := n.db.GetAtxEpoch(uint64(epoch - 1))
+	if err != nil {
+		fmt.Printf("Failed to get epoch totals: %s", err.Error())
+		return
+	}
+
+	atxNextEpochTotals, err := n.db.GetAtxEpoch(uint64(epoch))
+	if err != nil {
+		fmt.Printf("Failed to get next epoch totals: %s", err.Error())
+		return
+	}
+
+	hexAtx, err := n.getHigestAtx(uint64(epoch - 1))
+	if err != nil {
+		fmt.Printf("Failed to get highest atx: %s", err.Error())
+		return
+	}
+
+	base64Atx, err := hexToBase64(hexAtx)
+	if err != nil {
+		fmt.Printf("Failed to get base64 atx: %s", err.Error())
+		return
+	}
+
+	var genisesAccounts int64 = 28
+
 	n.networkInfo.Store(INFO_KEY, &types.NetworkInfo{
 		Epoch:                  epoch.Uint32(),
-		Layer:                  int64(layer),
-		EffectiveUnitsCommited: effectiveUnitsCommited,
-		CirculatingSupply:      circulatingSupply,
-		TotalAccounts:          totalAccounts,
-		AtxHex:                 hex.EncodeToString(highest.Bytes()),
-		AtxBase64:              base64.StdEncoding.EncodeToString(highest.Bytes()),
-		TotalActiveSmeshers:    totalActiveSmeshers,
+		Layer:                  uint64(layer.Layer),
+		EffectiveUnitsCommited: atxEpochTotals.TotalEffectiveNumUnits,
+		CirculatingSupply:      networkInfo.CirculatingSupply,
+		TotalAccounts:          uint64(totalAccounts + genisesAccounts),
+		AtxHex:                 hexAtx,
+		AtxBase64:              base64Atx,
+		TotalActiveSmeshers:    uint64(atxEpoch),
 		NextEpoch: &types.NetworkInfoNextEpoch{
 			Epoch:                  epoch.Uint32() + 1,
-			EffectiveUnitsCommited: effectiveUnitsCommitedNextEpoch,
-			TotalActiveSmeshers:    totalActiveSmeshersNextEpoch,
+			EffectiveUnitsCommited: int64(atxNextEpochTotals.TotalEffectiveNumUnits),
+			TotalActiveSmeshers:    atxNextEpoch,
 		},
 	})
+
+}
+
+func (n *NetworkRoutes) getHigestAtx(epoch uint64) (string, error) {
+	atxs, err := n.db.GetAtxForEpoch(epoch)
+	if err != nil {
+		return "", err
+	}
+
+	malfeasanceNodes, err := n.db.GetMalfeasanceNodes()
+	if err != nil {
+		return "", err
+	}
+
+	malfeasanceNodesMap := make(map[string]bool)
+
+	for _, v := range malfeasanceNodes {
+		malfeasanceNodesMap[v.ID] = true
+	}
+
+	var maxHeight uint64 = 0
+	atxID := ""
+
+	for _, atx := range atxs {
+
+		atxHeight := atx.BaseTick + atx.TickCount
+		if atxHeight > uint64(maxHeight) && !malfeasanceNodesMap[atx.NodeID] {
+			maxHeight = atxHeight
+			atxID = atx.AtxID
+		}
+
+	}
+
+	return atxID, nil
+}
+
+func hexToBase64(hexString string) (string, error) {
+	bytes, err := hex.DecodeString(hexString)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(bytes), nil
 }
