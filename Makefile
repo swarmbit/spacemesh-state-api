@@ -10,7 +10,7 @@ server:
 .PHONY: server
 
 docker-build-api:
-	docker build -t ghcr.io/swarmbit/spacemesh-state-api:v0.0.7 .
+	docker build -t ghcr.io/swarmbit/spacemesh-state-api-v2:v2.0.0 .
 
 docker-push-api:
-	docker push ghcr.io/swarmbit/spacemesh-state-api:v0.0.7
+	docker push ghcr.io/swarmbit/spacemesh-state-api-v2:v2.0.0

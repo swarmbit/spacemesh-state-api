@@ -13,11 +13,13 @@ import (
 )
 
 func StartServer() {
-	writeDB, err := database.NewWriteDB("mongodb://localhost:27017")
+
+	connection := "mongodb://spacemesh:<password>@spacemesh-mongodb-svc.spacemesh.svc.cluster.local:27017/admin?replicaSet=spacemesh-mongodb&authMechanism=SCRAM-SHA-256"
+	writeDB, err := database.NewWriteDB(connection)
 	if err != nil {
 		panic("Failed to open document write db")
 	}
-	readDB, err := database.NewReadDB("mongodb://localhost:27017")
+	readDB, err := database.NewReadDB(connection)
 	if err != nil {
 		panic("Failed to open document read db")
 	}

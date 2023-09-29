@@ -372,7 +372,11 @@ func (m *ReadDB) GetLastProcessedLayer() (*types.LayerDoc, error) {
 	if err = cursor.All(ctx, &layers); err != nil {
 		return nil, err
 	}
-	return layers[0], nil
+	if len(layers) > 0 {
+		return layers[0], nil
+	} else {
+		return &types.LayerDoc{}, nil
+	}
 }
 
 func (m *ReadDB) CloseRead() {

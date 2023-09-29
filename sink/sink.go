@@ -22,7 +22,7 @@ type Sink struct {
 }
 
 func NewSink(writeDB *database.WriteDB) *Sink {
-	nc, err := nats.Connect("nats://127.0.0.1:4222")
+	nc, err := nats.Connect("nats://spacemesh-nats:4222")
 	if err != nil {
 		panic("Failed to connect to NATS")
 

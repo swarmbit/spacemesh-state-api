@@ -150,7 +150,7 @@ func createIndexes(client *mongo.Client) error {
 
 func (m *WriteDB) SaveLayer(layer *nats.LayerUpdate) error {
 	// only store processed layers
-	if layer.LayerID > 0 {
+	if layer.Status > 0 {
 		layersColl := m.client.Database(database).Collection(layersCollection)
 		_, err := layersColl.UpdateOne(
 			context.TODO(),
