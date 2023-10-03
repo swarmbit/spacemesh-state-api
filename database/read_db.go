@@ -30,12 +30,34 @@ func (m *ReadDB) GetAccount(account string) (*types.AccountDoc, error) {
 		context.TODO(),
 		bson.D{{Key: "_id", Value: account}},
 	)
+
 	accountDoc := &types.AccountDoc{}
 	err := accountResult.Decode(accountDoc)
+
 	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &types.AccountDoc{}, nil
+		}
 		return &types.AccountDoc{}, err
 	}
 	return accountDoc, nil
+}
+
+func (m *ReadDB) GetNode(nodeId string) (*types.NodeDoc, error) {
+	nodesColl := m.client.Database(database).Collection(nodesCollection)
+	nodeResult := nodesColl.FindOne(
+		context.TODO(),
+		bson.D{{Key: "_id", Value: nodeId}},
+	)
+	nodeDoc := &types.NodeDoc{}
+	err := nodeResult.Decode(nodeDoc)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &types.NodeDoc{}, nil
+		}
+		return &types.NodeDoc{}, err
+	}
+	return nodeDoc, nil
 }
 
 func (m *ReadDB) CountTransactions(account string) (int64, error) {
@@ -71,6 +93,20 @@ func (m *ReadDB) CountRewards(account string) (int64, error) {
 	return rewardsResult, nil
 }
 
+func (m *ReadDB) CountNodeRewards(node string) (int64, error) {
+	rewardsColl := m.client.Database(database).Collection(rewardsCollection)
+	rewardsResult, err := rewardsColl.CountDocuments(
+		context.TODO(),
+		bson.D{
+			{Key: "node_id", Value: node},
+		},
+	)
+	if err != nil {
+		return 0, err
+	}
+	return rewardsResult, nil
+}
+
 func (m *ReadDB) CountRewardsLayers(account string, minLayer uint32, maxLayer uint32) (int64, error) {
 	rewardsColl := m.client.Database(database).Collection(rewardsCollection)
 	filter := bson.M{
@@ -88,6 +124,67 @@ func (m *ReadDB) CountRewardsLayers(account string, minLayer uint32, maxLayer ui
 		return 0, err
 	}
 	return rewardsResult, nil
+}
+
+func (m *ReadDB) CountNodeRewardsLayers(node string, minLayer uint32, maxLayer uint32) (int64, error) {
+	rewardsColl := m.client.Database(database).Collection(rewardsCollection)
+	filter := bson.M{
+		"node_id": node,
+		"layer": bson.M{
+			"$gte": minLayer,
+			"$lt":  maxLayer,
+		},
+	}
+	rewardsResult, err := rewardsColl.CountDocuments(
+		context.TODO(),
+		filter,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return rewardsResult, nil
+}
+
+func (m *ReadDB) SumNodeRewardsLayers(node string, minLayer uint32, maxLayer uint32) (int64, error) {
+	rewardsColl := m.client.Database(database).Collection(rewardsCollection)
+
+	match := bson.D{
+		{Key: "$match", Value: bson.D{
+			{Key: "node_id", Value: node},
+			{Key: "layer", Value: bson.D{
+				{Key: "$gte", Value: minLayer},
+				{Key: "$lt", Value: maxLayer},
+			}},
+		}},
+	}
+
+	group := bson.D{
+		{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: nil},
+			{Key: "totalSum", Value: bson.D{{Key: "$sum", Value: "$totalReward"}}},
+		}},
+	}
+
+	cursor, err := rewardsColl.Aggregate(
+		context.TODO(),
+		mongo.Pipeline{match, group},
+	)
+
+	if err != nil {
+		return 0, err
+	}
+
+	var results []*types.AggregationTotal
+	if err = cursor.All(context.TODO(), &results); err != nil {
+		return 0, err
+	}
+
+	var totalSum int64 = 0
+	if len(results) > 0 {
+		totalSum = results[0].TotalSum
+
+	}
+	return totalSum, nil
 }
 
 func (m *ReadDB) SumRewardsLayers(account string, minLayer uint32, maxLayer uint32) (int64, error) {
@@ -160,12 +257,79 @@ func (m *ReadDB) GetRewards(account string, skip int64, limit int64, sort int8) 
 	return rewards, nil
 }
 
+func (m *ReadDB) GetNodeRewards(node string, skip int64, limit int64, sort int8) ([]*types.RewardsDoc, error) {
+	rewardsColl := m.client.Database(database).Collection(rewardsCollection)
+
+	findOptions := options.Find()
+	findOptions.SetSkip(skip)
+	findOptions.SetLimit(limit)
+	findOptions.SetSort(bson.M{"layer": sort})
+
+	ctx := context.TODO()
+	cursor, err := rewardsColl.Find(
+		ctx,
+		bson.D{
+			{Key: "node_id", Value: node},
+		},
+		findOptions,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var rewards []*types.RewardsDoc
+	if err = cursor.All(ctx, &rewards); err != nil {
+		return nil, err
+	}
+	return rewards, nil
+}
+
 func (m *ReadDB) GetAtxWeightAccount(account string, epoch uint64) (*types.AggregationAtxTotals, error) {
 	atxColl := m.client.Database(database).Collection(atxsCollection)
 
 	match := bson.D{
 		{Key: "$match", Value: bson.D{
 			{Key: "coinbase", Value: account},
+			{Key: "publishepoch", Value: epoch},
+		}},
+	}
+
+	group := bson.D{
+		{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: nil},
+			{Key: "totalWeight", Value: bson.D{{Key: "$sum", Value: "$weight"}}},
+			{Key: "totalEffectiveNumUnits", Value: bson.D{{Key: "$sum", Value: "$effective_num_units"}}},
+		}},
+	}
+
+	cursor, err := atxColl.Aggregate(
+		context.TODO(),
+		mongo.Pipeline{match, group},
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var results []*types.AggregationAtxTotals
+	if err = cursor.All(context.TODO(), &results); err != nil {
+		return nil, err
+	}
+
+	if len(results) > 0 {
+		return results[0], nil
+	}
+
+	return &types.AggregationAtxTotals{}, nil
+}
+
+func (m *ReadDB) GetAtxWeightNode(node string, epoch uint64) (*types.AggregationAtxTotals, error) {
+	atxColl := m.client.Database(database).Collection(atxsCollection)
+
+	match := bson.D{
+		{Key: "$match", Value: bson.D{
+			{Key: "node_id", Value: node},
 			{Key: "publishepoch", Value: epoch},
 		}},
 	}

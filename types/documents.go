@@ -28,7 +28,7 @@ type MalfeasanceNodeDoc struct {
 type NodeAtxDoc struct {
 	Coinbase          string `bson:"coinbase"`
 	PublishEpoch      uint32 `json:"publish_epoch"`
-	EffectiveNumUnits uint32 `bson:"effective_num_units"`
+	EffectiveNumUnits uint32 `bson:"effectiveNumUnits"`
 	Weight            uint64 `bson:"weight"`
 	Sequence          uint64 `json:"sequence"`
 	Received          int64  `json:"received"`

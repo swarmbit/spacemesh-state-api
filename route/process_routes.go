@@ -8,9 +8,10 @@ import (
 
 func AddRoutes(readDB *database.ReadDB, router *gin.Engine) {
 	networkUtils := network.NewNetworkUtils()
-	accountRoutes := NewAccountRoutes(readDB, networkUtils)
-	networkRoutes := NewNetworkRoutes(readDB, networkUtils)
-	nodeRoutes := NewNodeRoutes(readDB, networkUtils)
+	state := network.NewNetworkState(readDB, networkUtils)
+	accountRoutes := NewAccountRoutes(readDB, networkUtils, state)
+	networkRoutes := NewNetworkRoutes(state)
+	nodeRoutes := NewNodeRoutes(readDB, networkUtils, state)
 
 	router.GET("/account/:accountAddress", func(c *gin.Context) {
 		accountRoutes.GetAccount(c)
@@ -40,7 +41,15 @@ func AddRoutes(readDB *database.ReadDB, router *gin.Engine) {
 		nodeRoutes.GetNode(c)
 	})
 
-	router.GET("/nodes/:nodeId/eligibility", func(c *gin.Context) {
+	router.GET("/nodes/:nodeId/rewards", func(c *gin.Context) {
+		nodeRoutes.GetNodeRewards(c)
+	})
+
+	router.GET("/nodes/:nodeId/rewards/details", func(c *gin.Context) {
+		nodeRoutes.GetNodeRewardsDetails(c)
+	})
+
+	router.GET("/nodes/:nodeId/rewards/eligibility", func(c *gin.Context) {
 		nodeRoutes.GetEligibility(c)
 	})
 }

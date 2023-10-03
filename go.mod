@@ -5,6 +5,7 @@ go 1.21
 require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/nats-io/nats.go v1.29.0
+	github.com/spacemeshos/economics v0.1.1
 	github.com/spacemeshos/go-scale v1.1.11
 	github.com/spacemeshos/go-spacemesh v1.1.3
 	github.com/stretchr/testify v1.8.4
@@ -29,6 +30,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/elastic/gosigar v0.14.2 // indirect
+	github.com/ericlagergren/decimal v0.0.0-20221120152707-495c53812d05 // indirect
 	github.com/flynn/noise v1.0.0 // indirect
 	github.com/francoispqt/gojay v1.2.13 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect

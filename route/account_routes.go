@@ -16,12 +16,14 @@ import (
 type AccountRoutes struct {
 	db           *database.ReadDB
 	networkUtils *network.NetworkUtils
+	state        *network.NetworkState
 }
 
-func NewAccountRoutes(readDB *database.ReadDB, networkUtils *network.NetworkUtils) *AccountRoutes {
+func NewAccountRoutes(readDB *database.ReadDB, networkUtils *network.NetworkUtils, state *network.NetworkState) *AccountRoutes {
 	return &AccountRoutes{
 		db:           readDB,
 		networkUtils: networkUtils,
+		state:        state,
 	}
 }
 
@@ -108,14 +110,6 @@ func (a *AccountRoutes) GetAccountRewards(c *gin.Context) {
 	}
 
 	accountAddress := c.Param("accountAddress")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status": "Bad Request",
-			"error":  "Wrong account address format",
-		})
-		return
-	}
-
 	rewards, errRewards := a.db.GetRewards(accountAddress, int64(offset), int64(limit), sort)
 	count, errCount := a.db.CountRewards(accountAddress)
 
@@ -187,14 +181,6 @@ func (a *AccountRoutes) GetAccountTransactions(c *gin.Context) {
 	complete := completeStr == "true"
 
 	accountAddress := c.Param("accountAddress")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status": "Bad Request",
-			"error":  "Wrong account address format",
-		})
-		return
-	}
-
 	transactions, errRewards := a.db.GetTransactions(accountAddress, int64(offset), int64(limit), sort, complete)
 	count, errCount := a.db.CountTransactions(accountAddress)
 
@@ -239,16 +225,7 @@ func (a *AccountRoutes) GetAccountTransactions(c *gin.Context) {
 func (a *AccountRoutes) GetAccountRewardsDetails(c *gin.Context) {
 	accountAddress := c.Param("accountAddress")
 
-	layer, err := a.db.GetLastProcessedLayer()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status": "Internal Error",
-			"error":  "Failed to get current epoch",
-		})
-		return
-	}
-
-	epoch := a.networkUtils.GetEpoch(uint64(layer.Layer))
+	epoch := a.state.GetInfo().Epoch
 
 	account, err := a.db.GetAccount(accountAddress)
 	if err != nil {
@@ -290,18 +267,12 @@ func (a *AccountRoutes) GetAccountRewardsDetails(c *gin.Context) {
 }
 
 func (a *AccountRoutes) GetAccountRewardsEligibilities(c *gin.Context) {
+
+	networkInfo := a.state.GetInfo()
+
 	accountAddress := c.Param("accountAddress")
 
-	layer, err := a.db.GetLastProcessedLayer()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status": "Internal Error",
-			"error":  "Failed to get current epoch",
-		})
-		return
-	}
-
-	epoch := a.networkUtils.GetEpoch(uint64(layer.Layer))
+	epoch := networkInfo.Epoch
 
 	accountAtx, err := a.db.GetAtxWeightAccount(accountAddress, uint64(epoch-1))
 	if err != nil {
@@ -312,16 +283,7 @@ func (a *AccountRoutes) GetAccountRewardsEligibilities(c *gin.Context) {
 		return
 	}
 
-	atxEpoch, err := a.db.GetAtxEpoch(uint64(epoch - 1))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status": "Internal Error",
-			"error":  "Failed to get total weight",
-		})
-		return
-	}
-
-	eligibilityCount, err := a.networkUtils.GetNumberOfSlots(uint64(accountAtx.TotalWeight), atxEpoch.TotalWeight)
+	eligibilityCount, err := a.networkUtils.GetNumberOfSlots(uint64(accountAtx.TotalWeight), networkInfo.TotalWeight)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status": "Internal Error",
@@ -330,9 +292,16 @@ func (a *AccountRoutes) GetAccountRewardsEligibilities(c *gin.Context) {
 		return
 	}
 
+	predictedRewards := (networkInfo.EpochSubsidy) / uint64(networkInfo.TotalSlots) * uint64(eligibilityCount)
+
+	if accountAtx.TotalWeight == 0 {
+		eligibilityCount = -1
+		predictedRewards = 0
+	}
+
 	c.JSON(200, &types.Eligibility{
-		Address:           accountAddress,
 		Count:             eligibilityCount,
 		EffectiveNumUnits: accountAtx.TotalEffectiveNumUnits,
+		PredictedRewards:  predictedRewards,
 	})
 }

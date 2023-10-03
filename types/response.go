@@ -39,7 +39,6 @@ type RewardDetails struct {
 }
 
 type Eligibility struct {
-	Address           string `json:"address"`
 	Count             int32  `json:"count"`
 	EffectiveNumUnits int64  `json:"effectiveNumUnits"`
 	PredictedRewards  uint64 `json:"predictedRewards"`
@@ -49,6 +48,9 @@ type NetworkInfo struct {
 	Epoch                  uint32                `json:"epoch"`
 	Layer                  uint64                `json:"layer"`
 	EffectiveUnitsCommited uint64                `json:"effectiveUnitsCommited"`
+	EpochSubsidy           uint64                `json:"epochSubsidy"`
+	TotalSlots             uint64                `json:"totalSlots"`
+	TotalWeight            uint64                `json:"totalWeight"`
 	CirculatingSupply      uint64                `json:"circulatingSupply"`
 	TotalAccounts          uint64                `json:"totalAccounts"`
 	TotalActiveSmeshers    uint64                `json:"totalActiveSmeshers"`
