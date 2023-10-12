@@ -10,20 +10,28 @@ import (
 	"github.com/swarmbit/spacemesh-state-api/config"
 	"github.com/swarmbit/spacemesh-state-api/database"
 	"github.com/swarmbit/spacemesh-state-api/network"
+	"github.com/swarmbit/spacemesh-state-api/price"
 	"github.com/swarmbit/spacemesh-state-api/types"
 )
 
 type AccountRoutes struct {
-	db           *database.ReadDB
-	networkUtils *network.NetworkUtils
-	state        *network.NetworkState
+	db            *database.ReadDB
+	networkUtils  *network.NetworkUtils
+	state         *network.NetworkState
+	priceResolver *price.PriceResolver
 }
 
-func NewAccountRoutes(readDB *database.ReadDB, networkUtils *network.NetworkUtils, state *network.NetworkState) *AccountRoutes {
+func NewAccountRoutes(
+	readDB *database.ReadDB,
+	networkUtils *network.NetworkUtils,
+	state *network.NetworkState,
+	priceResolver *price.PriceResolver,
+) *AccountRoutes {
 	return &AccountRoutes{
-		db:           readDB,
-		networkUtils: networkUtils,
-		state:        state,
+		db:            readDB,
+		networkUtils:  networkUtils,
+		state:         state,
+		priceResolver: priceResolver,
 	}
 }
 
@@ -64,7 +72,8 @@ func (a *AccountRoutes) GetAccount(c *gin.Context) {
 	}
 
 	c.JSON(200, &types.Account{
-		Balance: account.Balance,
+		Balance:  account.Balance,
+		USDValue: uint64(a.priceResolver.GetPrice() * float64(account.Balance)),
 		// legacy
 		BalanceDisplay:       "",
 		Address:              accountAddress,
@@ -225,7 +234,8 @@ func (a *AccountRoutes) GetAccountTransactions(c *gin.Context) {
 func (a *AccountRoutes) GetAccountRewardsDetails(c *gin.Context) {
 	accountAddress := c.Param("accountAddress")
 
-	epoch := a.state.GetInfo().Epoch
+	networkInfo := a.state.GetInfo()
+	epoch := networkInfo.Epoch
 
 	account, err := a.db.GetAccount(accountAddress)
 	if err != nil {
@@ -258,22 +268,6 @@ func (a *AccountRoutes) GetAccountRewardsDetails(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, &types.RewardDetails{
-		TotalSum:                 int64(account.TotalRewards),
-		CurrentEpoch:             int64(epoch),
-		CurrentEpochRewardsSum:   sumEpochResult,
-		CurrentEpochRewardsCount: countEpochResult,
-	})
-}
-
-func (a *AccountRoutes) GetAccountRewardsEligibilities(c *gin.Context) {
-
-	networkInfo := a.state.GetInfo()
-
-	accountAddress := c.Param("accountAddress")
-
-	epoch := networkInfo.Epoch
-
 	accountAtx, err := a.db.GetAtxWeightAccount(accountAddress, uint64(epoch-1))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -292,16 +286,23 @@ func (a *AccountRoutes) GetAccountRewardsEligibilities(c *gin.Context) {
 		return
 	}
 
-	predictedRewards := (networkInfo.EpochSubsidy) / uint64(networkInfo.TotalSlots) * uint64(eligibilityCount)
+	unitReward := networkInfo.EpochSubsidy / networkInfo.TotalWeight
+	predictedRewards := unitReward * uint64(accountAtx.TotalWeight)
 
 	if accountAtx.TotalWeight == 0 {
 		eligibilityCount = -1
 		predictedRewards = 0
 	}
 
-	c.JSON(200, &types.Eligibility{
-		Count:             eligibilityCount,
-		EffectiveNumUnits: accountAtx.TotalEffectiveNumUnits,
-		PredictedRewards:  predictedRewards,
+	c.JSON(200, &types.RewardDetails{
+		TotalSum:                 int64(account.TotalRewards),
+		CurrentEpoch:             int64(epoch),
+		CurrentEpochRewardsSum:   sumEpochResult,
+		CurrentEpochRewardsCount: countEpochResult,
+		Eligibility: &types.Eligibility{
+			Count:             eligibilityCount,
+			EffectiveNumUnits: accountAtx.TotalEffectiveNumUnits,
+			PredictedRewards:  uint64(predictedRewards),
+		},
 	})
 }

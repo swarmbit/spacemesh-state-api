@@ -2,6 +2,7 @@ package types
 
 type Account struct {
 	Balance              uint64 `json:"balance"`
+	USDValue             uint64 `json:"usdValue"`
 	BalanceDisplay       string `json:"balanceDisplay"`
 	NumberOfTransactions int64  `json:"numberOfTransactions"`
 	Counter              int64  `json:"counter"`
@@ -32,10 +33,11 @@ type Transaction struct {
 }
 
 type RewardDetails struct {
-	TotalSum                 int64 `json:"totalSum"`
-	CurrentEpoch             int64 `json:"currentEpoch"`
-	CurrentEpochRewardsSum   int64 `json:"currentEpochRewardsSum"`
-	CurrentEpochRewardsCount int64 `json:"currentEpochRewardsCount"`
+	TotalSum                 int64        `json:"totalSum"`
+	CurrentEpoch             int64        `json:"currentEpoch"`
+	CurrentEpochRewardsSum   int64        `json:"currentEpochRewardsSum"`
+	CurrentEpochRewardsCount int64        `json:"currentEpochRewardsCount"`
+	Eligibility              *Eligibility `json:"eligibility"`
 }
 
 type Eligibility struct {
@@ -52,6 +54,7 @@ type NetworkInfo struct {
 	TotalSlots             uint64                `json:"totalSlots"`
 	TotalWeight            uint64                `json:"totalWeight"`
 	CirculatingSupply      uint64                `json:"circulatingSupply"`
+	MarketCap              uint64                `json:"marketCap"`
 	TotalAccounts          uint64                `json:"totalAccounts"`
 	TotalActiveSmeshers    uint64                `json:"totalActiveSmeshers"`
 	AtxHex                 string                `json:"atxHex"`

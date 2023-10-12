@@ -6,8 +6,10 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/swarmbit/spacemesh-state-api/database"
+	"github.com/swarmbit/spacemesh-state-api/price"
 	"github.com/swarmbit/spacemesh-state-api/route"
 	"github.com/swarmbit/spacemesh-state-api/sink"
 )
@@ -24,6 +26,8 @@ func StartServer() {
 		panic("Failed to open document read db")
 	}
 
+	priceResolver := price.NewPriceResolver()
+
 	sink := sink.NewSink(writeDB)
 	sink.StartRewardsSink()
 	sink.StartLayersSink()
@@ -34,7 +38,14 @@ func StartServer() {
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
-	route.AddRoutes(readDB, router)
+
+	config := cors.DefaultConfig()
+	config.AllowOrigins = []string{"*"}
+	config.AllowMethods = []string{"GET"}
+	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type"}
+
+	router.Use(cors.New(config))
+	route.AddRoutes(readDB, router, priceResolver)
 
 	server := &http.Server{
 		Addr:    ":8080",

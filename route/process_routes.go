@@ -4,12 +4,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/swarmbit/spacemesh-state-api/database"
 	"github.com/swarmbit/spacemesh-state-api/network"
+	"github.com/swarmbit/spacemesh-state-api/price"
 )
 
-func AddRoutes(readDB *database.ReadDB, router *gin.Engine) {
+func AddRoutes(readDB *database.ReadDB, router *gin.Engine, priceResolver *price.PriceResolver) {
 	networkUtils := network.NewNetworkUtils()
-	state := network.NewNetworkState(readDB, networkUtils)
-	accountRoutes := NewAccountRoutes(readDB, networkUtils, state)
+	state := network.NewNetworkState(readDB, networkUtils, priceResolver)
+	accountRoutes := NewAccountRoutes(readDB, networkUtils, state, priceResolver)
 	networkRoutes := NewNetworkRoutes(state)
 	nodeRoutes := NewNodeRoutes(readDB, networkUtils, state)
 
@@ -27,10 +28,6 @@ func AddRoutes(readDB *database.ReadDB, router *gin.Engine) {
 
 	router.GET("/account/:accountAddress/rewards/details", func(c *gin.Context) {
 		accountRoutes.GetAccountRewardsDetails(c)
-	})
-
-	router.GET("/account/:accountAddress/rewards/eligibility", func(c *gin.Context) {
-		accountRoutes.GetAccountRewardsEligibilities(c)
 	})
 
 	router.GET("/network/info", func(c *gin.Context) {

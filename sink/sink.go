@@ -25,7 +25,6 @@ func NewSink(writeDB *database.WriteDB) *Sink {
 	nc, err := nats.Connect("nats://spacemesh-nats:4222")
 	if err != nil {
 		panic("Failed to connect to NATS")
-
 	}
 	js, _ := nc.JetStream()
 
