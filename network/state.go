@@ -8,22 +8,25 @@ import (
 	"time"
 
 	"github.com/swarmbit/spacemesh-state-api/database"
+	"github.com/swarmbit/spacemesh-state-api/price"
 	"github.com/swarmbit/spacemesh-state-api/types"
 )
 
 const INFO_KEY = "info"
 
 type NetworkState struct {
-	db           *database.ReadDB
-	networkUtils *NetworkUtils
-	networkInfo  *sync.Map
+	db            *database.ReadDB
+	networkUtils  *NetworkUtils
+	networkInfo   *sync.Map
+	priceResolver *price.PriceResolver
 }
 
-func NewNetworkState(db *database.ReadDB, networkUtils *NetworkUtils) *NetworkState {
+func NewNetworkState(db *database.ReadDB, networkUtils *NetworkUtils, priceResolver *price.PriceResolver) *NetworkState {
 	state := &NetworkState{
-		db:           db,
-		networkUtils: networkUtils,
-		networkInfo:  &sync.Map{},
+		db:            db,
+		networkUtils:  networkUtils,
+		networkInfo:   &sync.Map{},
+		priceResolver: priceResolver,
 	}
 	state.fetchNetworkInfo()
 	state.periodicNetworkInfoFetch()
@@ -121,6 +124,7 @@ func (n *NetworkState) fetchNetworkInfo() {
 		TotalWeight:            atxEpochTotals.TotalWeight,
 		EffectiveUnitsCommited: atxEpochTotals.TotalEffectiveNumUnits,
 		CirculatingSupply:      networkInfo.CirculatingSupply,
+		MarketCap:              uint64(float64(networkInfo.CirculatingSupply) * n.priceResolver.GetPrice()),
 		TotalAccounts:          uint64(totalAccounts + genisesAccounts),
 		AtxHex:                 hexAtx,
 		AtxBase64:              base64Atx,

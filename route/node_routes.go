@@ -187,7 +187,8 @@ func (n *NodesRoutes) GetEligibility(c *gin.Context) {
 		return
 	}
 
-	predictedRewards := (networkInfo.EpochSubsidy) / uint64(networkInfo.TotalSlots) * uint64(eligibilityCount)
+	unitReward := networkInfo.EpochSubsidy / networkInfo.TotalWeight
+	predictedRewards := unitReward * uint64(nodeAtx.TotalWeight)
 
 	if nodeAtx.TotalWeight == 0 {
 		eligibilityCount = -1
