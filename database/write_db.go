@@ -20,7 +20,7 @@ type WriteDB struct {
 	client *mongo.Client
 }
 
-const database = "spacemesh"
+const database = "spacemesh-prod-1"
 const rewardsCollection = "rewards"
 const layersCollection = "layers"
 const atxsCollection = "atxs"
@@ -372,11 +372,17 @@ func (m *WriteDB) SaveTransactions(transaction *nats.Transaction, result bool) e
 
 			transactionsColl := m.client.Database(database).Collection(transactionsCollection)
 
-			updateResult, err := transactionsColl.InsertOne(
+			insertResult, err := transactionsColl.InsertOne(
 				context.TODO(),
 				transactionDoc,
 			)
-			return updateResult, err
+
+			// if already saved ignore error
+			if err != nil && docExistsErr(err) {
+				return insertResult, nil
+			}
+
+			return insertResult, err
 		}
 	}
 
@@ -473,4 +479,13 @@ func safeMul(a, b uint64) uint64 {
 		panic("uint64 overflow")
 	}
 	return c
+}
+
+func docExistsErr(err error) bool {
+	if wes, ok := err.(mongo.WriteException); ok {
+		if wes.HasErrorCode(11000) {
+			return true
+		}
+	}
+	return false
 }
