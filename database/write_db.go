@@ -20,7 +20,7 @@ type WriteDB struct {
 	client *mongo.Client
 }
 
-const database = "spacemesh"
+const database = "spacemesh-prod-1"
 const rewardsCollection = "rewards"
 const layersCollection = "layers"
 const atxsCollection = "atxs"
@@ -306,18 +306,23 @@ func (m *WriteDB) SaveTransactions(transaction *nats.Transaction, result bool) e
 				return previousTransaction, err
 			}
 
-			var amount uint64 = 0
-			if err == nil {
-				previousTransactionDoc := &types.Transaction{}
-				previousTransaction.Decode(previousTransactionDoc)
-				amount = transactionDoc.Amount
+			updateBalances := false
+
+			if err == mongo.ErrNoDocuments {
+				// if no documents found means it got the result before the created so it should update balance
+				updateBalances = true
+			} else {
+				previousTransactionDoc := &types.TransactionDoc{}
+				err := previousTransaction.Decode(previousTransactionDoc)
+				if err != nil {
+					return previousTransaction, err
+				}
+				// if not complete means it should update balance, if complete is a duplicate so don't update balances
+				updateBalances = !previousTransactionDoc.Complete
 			}
 
-			updated := amount == 0
-
-			if updated && transactionDoc.Amount > 0 {
-				accountsColl := m.client.Database(database).Collection(accountsCollection)
-
+			// if amount is 0 there is not point updating the balance for receiver account
+			if updateBalances && transactionDoc.Amount > 0 {
 				updateResult, err := accountsColl.UpdateOne(
 					context.TODO(),
 					bson.D{{Key: "_id", Value: transactionDoc.ReceiverAccount}},
@@ -332,7 +337,8 @@ func (m *WriteDB) SaveTransactions(transaction *nats.Transaction, result bool) e
 				}
 			}
 
-			if updated {
+			// update balance for sender account
+			if updateBalances {
 
 				fee := transactionDoc.Gas * transactionDoc.GasPrice
 				valueToDeduct := (int64(transactionDoc.Amount) + int64(fee)) * -1
@@ -366,12 +372,17 @@ func (m *WriteDB) SaveTransactions(transaction *nats.Transaction, result bool) e
 
 			transactionsColl := m.client.Database(database).Collection(transactionsCollection)
 
-			updateResult, err := transactionsColl.UpdateOne(
+			insertResult, err := transactionsColl.InsertOne(
 				context.TODO(),
-				bson.D{{Key: "_id", Value: transaction.ID}},
-				bson.D{{Key: "$set", Value: transactionDoc}},
-				options.Update().SetUpsert(true))
-			return updateResult, err
+				transactionDoc,
+			)
+
+			// if already saved ignore error
+			if err != nil && docExistsErr(err) {
+				return insertResult, nil
+			}
+
+			return insertResult, err
 		}
 	}
 
@@ -468,4 +479,13 @@ func safeMul(a, b uint64) uint64 {
 		panic("uint64 overflow")
 	}
 	return c
+}
+
+func docExistsErr(err error) bool {
+	if wes, ok := err.(mongo.WriteException); ok {
+		if wes.HasErrorCode(11000) {
+			return true
+		}
+	}
+	return false
 }
