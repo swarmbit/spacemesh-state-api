@@ -54,6 +54,7 @@ type NetworkInfo struct {
 	TotalSlots             uint64                `json:"totalSlots"`
 	TotalWeight            uint64                `json:"totalWeight"`
 	CirculatingSupply      uint64                `json:"circulatingSupply"`
+	Price                  float64               `json:"price"`
 	MarketCap              uint64                `json:"marketCap"`
 	TotalAccounts          uint64                `json:"totalAccounts"`
 	TotalActiveSmeshers    uint64                `json:"totalActiveSmeshers"`

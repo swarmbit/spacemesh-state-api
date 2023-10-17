@@ -115,7 +115,7 @@ func (n *NetworkState) fetchNetworkInfo() {
 	}
 
 	var genisesAccounts int64 = 28
-
+	var price = n.priceResolver.GetPrice()
 	n.networkInfo.Store(INFO_KEY, &types.NetworkInfo{
 		Epoch:                  epoch.Uint32(),
 		EpochSubsidy:           n.networkUtils.GetEpochSubsidy(uint64(epoch)),
@@ -124,7 +124,8 @@ func (n *NetworkState) fetchNetworkInfo() {
 		TotalWeight:            atxEpochTotals.TotalWeight,
 		EffectiveUnitsCommited: atxEpochTotals.TotalEffectiveNumUnits,
 		CirculatingSupply:      networkInfo.CirculatingSupply,
-		MarketCap:              uint64(float64(networkInfo.CirculatingSupply) * n.priceResolver.GetPrice()),
+		Price:                  price,
+		MarketCap:              uint64(float64(networkInfo.CirculatingSupply) * price),
 		TotalAccounts:          uint64(totalAccounts + genisesAccounts),
 		AtxHex:                 hexAtx,
 		AtxBase64:              base64Atx,
