@@ -40,6 +40,13 @@ type RewardDetails struct {
 	Eligibility              *Eligibility `json:"eligibility"`
 }
 
+type RewardDetailsEpoch struct {
+	Epoch        int64        `json:"epoch"`
+	RewardsSum   int64        `json:"rewardsSum"`
+	RewardsCount int64        `json:"rewardsCount"`
+	Eligibility  *Eligibility `json:"eligibility"`
+}
+
 type Eligibility struct {
 	Count             int32  `json:"count"`
 	EffectiveNumUnits int64  `json:"effectiveNumUnits"`

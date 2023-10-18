@@ -15,21 +15,25 @@ import (
 const INFO_KEY = "info"
 
 type NetworkState struct {
-	db            *database.ReadDB
-	networkUtils  *NetworkUtils
-	networkInfo   *sync.Map
-	priceResolver *price.PriceResolver
+	db             *database.ReadDB
+	networkUtils   *NetworkUtils
+	networkInfo    *sync.Map
+	epochSubsidies *sync.Map
+	priceResolver  *price.PriceResolver
 }
 
 func NewNetworkState(db *database.ReadDB, networkUtils *NetworkUtils, priceResolver *price.PriceResolver) *NetworkState {
 	state := &NetworkState{
-		db:            db,
-		networkUtils:  networkUtils,
-		networkInfo:   &sync.Map{},
-		priceResolver: priceResolver,
+		db:             db,
+		networkUtils:   networkUtils,
+		networkInfo:    &sync.Map{},
+		epochSubsidies: &sync.Map{},
+		priceResolver:  priceResolver,
 	}
 	state.fetchNetworkInfo()
 	state.periodicNetworkInfoFetch()
+	state.calculateEpochSubsidies()
+	state.periodicCalculateSubsidy()
 	return state
 }
 
@@ -41,11 +45,28 @@ func (n *NetworkState) GetInfo() *types.NetworkInfo {
 	return networkInfo.(*types.NetworkInfo)
 }
 
+func (n *NetworkState) GetEpochSubsidy(epoch uint32) uint64 {
+	subsidy, exists := n.epochSubsidies.Load(epoch)
+	if !exists {
+		return 0
+	}
+	return subsidy.(uint64)
+}
+
 func (n *NetworkState) periodicNetworkInfoFetch() {
 	ticker := time.NewTicker(60 * time.Second)
 	go func() {
 		for range ticker.C {
 			n.fetchNetworkInfo()
+		}
+	}()
+}
+
+func (n *NetworkState) periodicCalculateSubsidy() {
+	ticker := time.NewTicker(60 * time.Second)
+	go func() {
+		for range ticker.C {
+			n.calculateEpochSubsidies()
 		}
 	}()
 }
@@ -137,6 +158,20 @@ func (n *NetworkState) fetchNetworkInfo() {
 		},
 	})
 
+}
+
+func (n *NetworkState) calculateEpochSubsidies() {
+	layer, err := n.db.GetLastProcessedLayer()
+	if err != nil {
+		fmt.Printf("Failed to get last processed layer: %s", err.Error())
+		return
+	}
+
+	epoch := n.networkUtils.GetEpoch(uint64(layer.Layer))
+	for i := epoch + 1; i >= 2; i-- {
+		epochSubsidy := n.networkUtils.GetEpochSubsidy(uint64(i))
+		n.epochSubsidies.Store(i.Uint32(), epochSubsidy)
+	}
 }
 
 func (n *NetworkState) getHigestAtx(epoch uint64) (string, error) {
