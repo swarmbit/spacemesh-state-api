@@ -29,75 +29,75 @@ func NewSink(writeDB *database.WriteDB) *Sink {
 	js, _ := nc.JetStream()
 
 	js.AddConsumer("layers", &nats.ConsumerConfig{
-		Durable:        "state-api-process-layers-1",
+		Durable:        "state-api-process-layers",
 		DeliverSubject: "layers",
-		DeliverGroup:   "state-api-process-layers-1",
+		DeliverGroup:   "state-api-process-layers",
 		AckPolicy:      nats.AckExplicitPolicy,
 		DeliverPolicy:  nats.DeliverLastPolicy,
 	})
 
 	js.AddConsumer("rewards", &nats.ConsumerConfig{
-		Durable:        "state-api-process-rewards-1",
+		Durable:        "state-api-process-rewards",
 		DeliverSubject: "rewards",
-		DeliverGroup:   "state-api-process-rewards-1",
+		DeliverGroup:   "state-api-process-rewards",
 		AckPolicy:      nats.AckExplicitPolicy,
 		DeliverPolicy:  nats.DeliverLastPolicy,
 	})
 
 	js.AddConsumer("atx", &nats.ConsumerConfig{
-		Durable:        "state-api-process-atx-1",
+		Durable:        "state-api-process-atx",
 		DeliverSubject: "atx",
-		DeliverGroup:   "state-api-process-atx-1",
+		DeliverGroup:   "state-api-process-atx",
 		AckPolicy:      nats.AckExplicitPolicy,
 		DeliverPolicy:  nats.DeliverLastPolicy,
 	})
 
 	js.AddConsumer("transactions", &nats.ConsumerConfig{
-		Durable:        "state-api-process-transactions-result-1",
+		Durable:        "state-api-process-transactions-result",
 		DeliverSubject: "transactions.result",
-		DeliverGroup:   "state-api-process-transactions-1",
+		DeliverGroup:   "state-api-process-transactions",
 		AckPolicy:      nats.AckExplicitPolicy,
 		DeliverPolicy:  nats.DeliverLastPolicy,
 	})
 
 	js.AddConsumer("transactions", &nats.ConsumerConfig{
-		Durable:        "state-api-process-transactions-created-1",
+		Durable:        "state-api-process-transactions-created",
 		DeliverSubject: "transactions.created",
-		DeliverGroup:   "state-api-process-transactions-1",
+		DeliverGroup:   "state-api-process-transactions",
 		AckPolicy:      nats.AckExplicitPolicy,
 		DeliverPolicy:  nats.DeliverLastPolicy,
 	})
 
 	js.AddConsumer("malfeasance", &nats.ConsumerConfig{
-		Durable:        "state-api-process-malfeasance-1",
+		Durable:        "state-api-process-malfeasance",
 		DeliverSubject: "malfeasance",
-		DeliverGroup:   "state-api-process-malfeasance-1",
+		DeliverGroup:   "state-api-process-malfeasance",
 		AckPolicy:      nats.AckExplicitPolicy,
 		DeliverPolicy:  nats.DeliverLastPolicy,
 	})
 
 	fmt.Println("Connect to nats stream")
-	layersSub, err := js.PullSubscribe("layers", "state-api-process-layers-1", nats.BindStream("layers"))
+	layersSub, err := js.PullSubscribe("layers", "state-api-process-layers", nats.BindStream("layers"))
 	if err != nil {
 		fmt.Println("Failed to subscribe: ", err)
 	}
-	rewardsSub, err := js.PullSubscribe("rewards", "state-api-process-rewards-1", nats.BindStream("rewards"))
+	rewardsSub, err := js.PullSubscribe("rewards", "state-api-process-rewards", nats.BindStream("rewards"))
 	if err != nil {
 		fmt.Println("Failed to subscribe: ", err)
 	}
-	atxSub, err := js.PullSubscribe("atx", "state-api-process-atx-1", nats.BindStream("atx"))
+	atxSub, err := js.PullSubscribe("atx", "state-api-process-atx", nats.BindStream("atx"))
 	if err != nil {
 		fmt.Println("Failed to subscribe: ", err)
 	}
-	transactionsResultSub, err := js.PullSubscribe("transactions.result", "state-api-process-transactions-result-1", nats.BindStream("transactions"))
+	transactionsResultSub, err := js.PullSubscribe("transactions.result", "state-api-process-transactions-result", nats.BindStream("transactions"))
 	if err != nil {
 		fmt.Println("Failed to subscribe: ", err)
 	}
-	transactionsCreatedSub, err := js.PullSubscribe("transactions.created", "state-api-process-transactions-created-1", nats.BindStream("transactions"))
+	transactionsCreatedSub, err := js.PullSubscribe("transactions.created", "state-api-process-transactions-created", nats.BindStream("transactions"))
 	if err != nil {
 		fmt.Println("Failed to subscribe: ", err)
 	}
-	malfeasanceSub, err := js.PullSubscribe("malfeasance", "state-api-process-malfeasance-1", nats.BindStream("malfeasance"))
+	malfeasanceSub, err := js.PullSubscribe("malfeasance", "state-api-process-malfeasance", nats.BindStream("malfeasance"))
 	if err != nil {
 		fmt.Println("Failed to subscribe: ", err)
 	}
