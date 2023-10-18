@@ -30,6 +30,10 @@ func AddRoutes(readDB *database.ReadDB, router *gin.Engine, priceResolver *price
 		accountRoutes.GetAccountRewardsDetails(c)
 	})
 
+	router.GET("/account/:accountAddress/rewards/details/:epoch", func(c *gin.Context) {
+		accountRoutes.GetAccountRewardsDetailsEpoch(c)
+	})
+
 	router.GET("/network/info", func(c *gin.Context) {
 		networkRoutes.GetInfo(c)
 	})
