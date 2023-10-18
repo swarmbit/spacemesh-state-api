@@ -168,7 +168,7 @@ func (n *NetworkState) calculateEpochSubsidies() {
 	}
 
 	epoch := n.networkUtils.GetEpoch(uint64(layer.Layer))
-	for i := epoch; i >= 2; i-- {
+	for i := epoch + 1; i >= 2; i-- {
 		epochSubsidy := n.networkUtils.GetEpochSubsidy(uint64(i))
 		n.epochSubsidies.Store(i.Uint32(), epochSubsidy)
 	}

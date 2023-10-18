@@ -277,6 +277,16 @@ func (a *AccountRoutes) GetAccountRewardsDetails(c *gin.Context) {
 		return
 	}
 
+	if accountAtx.TotalWeight == 0 {
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"status": "Not found",
+				"error":  "Account not active for epoch",
+			})
+			return
+		}
+	}
+
 	eligibilityCount, err := a.networkUtils.GetNumberOfSlots(uint64(accountAtx.TotalWeight), networkInfo.TotalWeight)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -325,7 +335,7 @@ func (a *AccountRoutes) GetAccountRewardsDetailsEpoch(c *gin.Context) {
 		return
 	}
 
-	epochAtx, err := a.db.GetAtxEpoch(uint64(epoch))
+	epochAtx, err := a.db.GetAtxEpoch(uint64(epoch - 1))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status": "Internal Error",
@@ -334,11 +344,10 @@ func (a *AccountRoutes) GetAccountRewardsDetailsEpoch(c *gin.Context) {
 		return
 	}
 
-	account, err := a.db.GetAccount(accountAddress)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status": "Internal Error",
-			"error":  "Failed to get rewards sum",
+	if epochAtx.TotalWeight == 0 {
+		c.JSON(http.StatusNotFound, gin.H{
+			"status": "Not found",
+			"error":  "No details for epoch",
 		})
 		return
 	}
@@ -374,6 +383,14 @@ func (a *AccountRoutes) GetAccountRewardsDetailsEpoch(c *gin.Context) {
 		return
 	}
 
+	if accountAtx.TotalWeight == 0 {
+		c.JSON(http.StatusNotFound, gin.H{
+			"status": "Not found",
+			"error":  "Account not active for epoch",
+		})
+		return
+	}
+
 	eligibilityCount, err := a.networkUtils.GetNumberOfSlots(uint64(accountAtx.TotalWeight), epochAtx.TotalWeight)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -386,16 +403,10 @@ func (a *AccountRoutes) GetAccountRewardsDetailsEpoch(c *gin.Context) {
 	unitReward := a.state.GetEpochSubsidy(uint32(epoch)) / epochAtx.TotalWeight
 	predictedRewards := unitReward * uint64(accountAtx.TotalWeight)
 
-	if accountAtx.TotalWeight == 0 {
-		eligibilityCount = -1
-		predictedRewards = 0
-	}
-
-	c.JSON(200, &types.RewardDetails{
-		TotalSum:                 int64(account.TotalRewards),
-		CurrentEpoch:             int64(epoch),
-		CurrentEpochRewardsSum:   sumEpochResult,
-		CurrentEpochRewardsCount: countEpochResult,
+	c.JSON(200, &types.RewardDetailsEpoch{
+		Epoch:        int64(epoch),
+		RewardsSum:   sumEpochResult,
+		RewardsCount: countEpochResult,
 		Eligibility: &types.Eligibility{
 			Count:             eligibilityCount,
 			EffectiveNumUnits: accountAtx.TotalEffectiveNumUnits,
