@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/spacemeshos/go-scale"
+	sTypes "github.com/spacemeshos/go-spacemesh/common/types"
 	"github.com/spacemeshos/go-spacemesh/nats"
 	"github.com/swarmbit/spacemesh-state-api/pkg/transactionparser"
 	"github.com/swarmbit/spacemesh-state-api/types"
@@ -20,7 +21,7 @@ type WriteDB struct {
 	client *mongo.Client
 }
 
-const database = "spacemesh-prod-1"
+const database = "spacemesh"
 const rewardsCollection = "rewards"
 const layersCollection = "layers"
 const atxsCollection = "atxs"
@@ -319,6 +320,11 @@ func (m *WriteDB) SaveTransactions(transaction *nats.Transaction, result bool) e
 				}
 				// if not complete means it should update balance, if complete is a duplicate so don't update balances
 				updateBalances = !previousTransactionDoc.Complete
+			}
+
+			// if transaction not sucessfull or addressess length less than 2 it means is an ineffective transaction
+			if transaction.Header.Status != uint8(sTypes.TransactionSuccess) || len(transaction.Header.Addresses) < 2 {
+				updateBalances = false
 			}
 
 			// if amount is 0 there is not point updating the balance for receiver account
