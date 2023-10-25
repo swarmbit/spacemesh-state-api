@@ -30,10 +30,10 @@ func NewNetworkState(db *database.ReadDB, networkUtils *NetworkUtils, priceResol
 		epochSubsidies: &sync.Map{},
 		priceResolver:  priceResolver,
 	}
-	//state.fetchNetworkInfo()
-	//state.periodicNetworkInfoFetch()
-	//state.calculateEpochSubsidies()
-	//state.periodicCalculateSubsidy()
+	state.fetchNetworkInfo()
+	state.periodicNetworkInfoFetch()
+	state.calculateEpochSubsidies()
+	state.periodicCalculateSubsidy()
 	return state
 }
 
