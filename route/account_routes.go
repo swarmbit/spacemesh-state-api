@@ -211,15 +211,15 @@ func (a *AccountRoutes) GetAccountTransactions(c *gin.Context) {
 				method = "Spend"
 			}
 			transactionsResponse[i] = &types.Transaction{
-				ID:              v.ID,
-				Status:          v.Status,
-				PrincipaAccount: v.PrincipaAccount,
-				ReceiverAccount: v.ReceiverAccount,
-				Fee:             v.Gas * v.GasPrice,
-				Amount:          v.Amount,
-				Layer:           v.Layer,
-				Counter:         v.Counter,
-				Method:          method,
+				ID:               v.ID,
+				Status:           v.Status,
+				PrincipalAccount: v.PrincipaAccount,
+				ReceiverAccount:  v.ReceiverAccount,
+				Fee:              v.Gas * v.GasPrice,
+				Amount:           v.Amount,
+				Layer:            v.Layer,
+				Counter:          v.Counter,
+				Method:           method,
 			}
 		}
 

@@ -21,14 +21,14 @@ type Reward struct {
 }
 
 type Transaction struct {
-	ID              string `bson:"_id"`
+	ID              string `json:"id"`
 	Status          uint8  `json:"status"`
-	PrincipaAccount string `bson:"principal_account"`
-	ReceiverAccount string `bson:"receiver_account"`
-	Fee             uint64 `bson:"fee"`
-	Amount          uint64 `bson:"amount"`
-	Layer           uint32 `bson:"layer"`
-	Counter         uint64 `bson:"counter"`
+	PrincipalAccount string `json:"principalAccount"`
+	ReceiverAccount string `json:"receiverAccount"`
+	Fee             uint64 `json:"fee"`
+	Amount          uint64 `json:"amount"`
+	Layer           uint32 `json:"layer"`
+	Counter         uint64 `json:"counter"`
 	Method          string `json:"method"`
 }
 
