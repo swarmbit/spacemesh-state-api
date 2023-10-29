@@ -220,6 +220,7 @@ func (a *AccountRoutes) GetAccountTransactions(c *gin.Context) {
 				Layer:            v.Layer,
 				Counter:          v.Counter,
 				Method:           method,
+				Timestamp:        int64(config.GenesisEpochSeconds + (v.Layer * config.LayerDuration)),
 			}
 		}
 

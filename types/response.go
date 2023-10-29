@@ -30,6 +30,7 @@ type Transaction struct {
 	Layer           uint32 `json:"layer"`
 	Counter         uint64 `json:"counter"`
 	Method          string `json:"method"`
+	Timestamp       int64  `json:"timestamp"`
 }
 
 type RewardDetails struct {
