@@ -129,7 +129,7 @@ func (n *NetworkState) fetchNetworkInfo() {
 		return
 	}
 
-	totalSlots, err := n.networkUtils.GetNumberOfSlots(uint64(atxEpochTotals.TotalWeight), atxEpochTotals.TotalWeight)
+	totalSlots, err := n.networkUtils.GetNumberOfSlots(uint64(atxEpochTotals.TotalWeight), atxEpochTotals.TotalWeight, epoch.Uint32())
 	if err != nil {
 		fmt.Printf("Failed to get total slots: %s", err.Error())
 		return

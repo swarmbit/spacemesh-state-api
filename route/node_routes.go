@@ -178,7 +178,7 @@ func (n *NodesRoutes) GetEligibility(c *gin.Context) {
 		return
 	}
 
-	eligibilityCount, err := n.networkUtils.GetNumberOfSlots(uint64(nodeAtx.TotalWeight), networkInfo.TotalWeight)
+	eligibilityCount, err := n.networkUtils.GetNumberOfSlots(uint64(nodeAtx.TotalWeight), networkInfo.TotalWeight, epoch)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status": "Internal Error",

@@ -27,9 +27,12 @@ func (n *NetworkUtils) GetEpochFirst(epoch uint64) sTypes.LayerID {
 	return sTypes.LayerID(sTypes.EpochID(epoch)).Mul(config.LayersPerEpoch)
 }
 
-func (n *NetworkUtils) GetNumberOfSlots(weight uint64, totalWeight uint64) (int32, error) {
+func (n *NetworkUtils) GetNumberOfSlots(weight uint64, totalWeight uint64, epoch uint32) (int32, error) {
 	layerSize := n.tortoiseConfig.LayerSize
 	minimalWeight := uint64(7_879_129_244)
+	if epoch < 8 {
+		minimalWeight = 107467138
+	}
 
 	slots, err := util.GetNumEligibleSlots(weight, minimalWeight, totalWeight, layerSize, 4032)
 	return int32(slots), err

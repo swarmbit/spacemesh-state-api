@@ -288,7 +288,7 @@ func (a *AccountRoutes) GetAccountRewardsDetails(c *gin.Context) {
 		}
 	}
 
-	eligibilityCount, err := a.networkUtils.GetNumberOfSlots(uint64(accountAtx.TotalWeight), networkInfo.TotalWeight)
+	eligibilityCount, err := a.networkUtils.GetNumberOfSlots(uint64(accountAtx.TotalWeight), networkInfo.TotalWeight, epoch)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status": "Internal Error",
@@ -392,7 +392,7 @@ func (a *AccountRoutes) GetAccountRewardsDetailsEpoch(c *gin.Context) {
 		return
 	}
 
-	eligibilityCount, err := a.networkUtils.GetNumberOfSlots(uint64(accountAtx.TotalWeight), epochAtx.TotalWeight)
+	eligibilityCount, err := a.networkUtils.GetNumberOfSlots(uint64(accountAtx.TotalWeight), epochAtx.TotalWeight, uint32(epoch))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status": "Internal Error",
