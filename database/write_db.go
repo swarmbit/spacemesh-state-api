@@ -172,6 +172,7 @@ func (m *WriteDB) SaveAtx(atx *nats.Atx) error {
 		atxsColl := m.client.Database(database).Collection(atxsCollection)
 		atxsEpochsColl := m.client.Database(database).Collection(atxsEpochsCollection)
 		nodesColl := m.client.Database(database).Collection(nodesCollection)
+		accountsColl := m.client.Database(database).Collection(accountsCollection)
 		weight := getATXWeight(atx.TickCount, uint64(atx.EffectiveNumUnits))
 		atxDoc := &types.AtxDoc{
 			AtxID:             atx.AtxID,
@@ -221,6 +222,15 @@ func (m *WriteDB) SaveAtx(atx *nats.Atx) error {
 						{Key: "publishEpoch", Value: atxDoc.PublishEpoch},
 						{Key: "received", Value: atxDoc.Received},
 					}},
+				}}},
+				options.Update().SetUpsert(true),
+			)
+
+			updateResult, err = accountsColl.UpdateOne(
+				context.TODO(),
+				bson.D{{Key: "_id", Value: atxDoc.Coinbase}},
+				bson.D{{Key: "$set", Value: bson.D{
+					{Key: "_id", Value: atxDoc.Coinbase},
 				}}},
 				options.Update().SetUpsert(true),
 			)
