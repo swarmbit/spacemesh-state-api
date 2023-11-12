@@ -9,6 +9,9 @@ server:
 	cd server; go build -o $(BIN_DIR)$@ .
 .PHONY: server
 
+run-local:
+	./build/server ./local/config.json
+
 docker-build-api:
 	docker build -t ghcr.io/swarmbit/spacemesh-state-api-v2:v2.2.8 .
 

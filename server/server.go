@@ -8,15 +8,16 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/swarmbit/spacemesh-state-api/config"
 	"github.com/swarmbit/spacemesh-state-api/database"
 	"github.com/swarmbit/spacemesh-state-api/price"
 	"github.com/swarmbit/spacemesh-state-api/route"
 	"github.com/swarmbit/spacemesh-state-api/sink"
 )
 
-func StartServer() {
+func StartServer(configValues *config.Config) {
 
-	connection := "mongodb://spacemesh:<>@spacemesh-mongodb-svc.spacemesh.svc.cluster.local:27017/admin?replicaSet=spacemesh-mongodb&authMechanism=SCRAM-SHA-256"
+	connection := configValues.DB.Uri
 	writeDB, err := database.NewWriteDB(connection)
 	if err != nil {
 		panic("Failed to open document write db")
@@ -28,7 +29,7 @@ func StartServer() {
 
 	priceResolver := price.NewPriceResolver()
 
-	sink := sink.NewSink(writeDB)
+	sink := sink.NewSink(configValues, writeDB)
 	sink.StartRewardsSink()
 	sink.StartLayersSink()
 	sink.StartAtxSink()
@@ -45,10 +46,10 @@ func StartServer() {
 	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type"}
 
 	router.Use(cors.New(config))
-	route.AddRoutes(readDB, router, priceResolver)
+	route.AddRoutes(readDB, router, priceResolver, configValues)
 
 	server := &http.Server{
-		Addr:    ":8080",
+		Addr:    configValues.Server.Port,
 		Handler: router,
 	}
 
