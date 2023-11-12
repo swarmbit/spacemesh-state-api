@@ -2,7 +2,7 @@ package types
 
 type Account struct {
 	Balance              uint64 `json:"balance"`
-	USDValue             uint64 `json:"usdValue"`
+	USDValue             int64 `json:"usdValue"`
 	BalanceDisplay       string `json:"balanceDisplay"`
 	NumberOfTransactions int64  `json:"numberOfTransactions"`
 	Counter              int64  `json:"counter"`

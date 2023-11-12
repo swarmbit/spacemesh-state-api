@@ -71,9 +71,15 @@ func (a *AccountRoutes) GetAccount(c *gin.Context) {
 		return
 	}
 
+	priceValue := a.priceResolver.GetPrice()
+	dollarValue := int64(-1)
+	if priceValue > -1 {
+		dollarValue = int64(priceValue * float64(account.Balance))
+	}
+
 	c.JSON(200, &types.Account{
 		Balance:  account.Balance,
-		USDValue: uint64(a.priceResolver.GetPrice() * float64(account.Balance)),
+		USDValue: dollarValue,
 		// legacy
 		BalanceDisplay:       "",
 		Address:              accountAddress,

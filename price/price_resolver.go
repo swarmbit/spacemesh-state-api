@@ -58,7 +58,10 @@ func (p *PriceResolver) fetchPrice() {
 		return
 	}
 
-	p.priceMap.Store(priceKey, &response)
+	if response.Quotes["USD"] != nil {
+		p.priceMap.Store(priceKey, &response)
+	}
+
 }
 
 type PriceResponse struct {
