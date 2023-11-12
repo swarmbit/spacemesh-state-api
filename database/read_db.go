@@ -79,13 +79,32 @@ func (m *ReadDB) CountTransactions(account string) (int64, error) {
 	return accountResult, nil
 }
 
-func (m *ReadDB) CountRewards(account string) (int64, error) {
+func (m *ReadDB) CountRewards(account string, firstLayer int, lastLayer int) (int64, error) {
 	rewardsColl := m.client.Database(database).Collection(rewardsCollection)
+
+	filter := bson.D{
+		{Key: "coinbase", Value: account},
+	}
+	if firstLayer > -1 && lastLayer > -1 {
+		filter = bson.D{
+			{Key: "coinbase", Value: account},
+			{"layer", bson.D{{"$gte", firstLayer}}},
+			{"layer", bson.D{{"$lte", lastLayer}}},
+		}
+	} else if firstLayer > -1 {
+		filter = bson.D{
+			{Key: "coinbase", Value: account},
+			{"layer", bson.D{{"$gte", firstLayer}}},
+		}
+	} else if lastLayer > -1 {
+		filter = bson.D{
+			{Key: "coinbase", Value: account},
+			{"layer", bson.D{{"$lte", lastLayer}}},
+		}
+	}
 	rewardsResult, err := rewardsColl.CountDocuments(
 		context.TODO(),
-		bson.D{
-			{Key: "coinbase", Value: account},
-		},
+		filter,
 	)
 	if err != nil {
 		return 0, err
@@ -229,7 +248,7 @@ func (m *ReadDB) SumRewardsLayers(account string, minLayer uint32, maxLayer uint
 	return totalSum, nil
 }
 
-func (m *ReadDB) GetRewards(account string, skip int64, limit int64, sort int8) ([]*types.RewardsDoc, error) {
+func (m *ReadDB) GetRewards(account string, skip int64, limit int64, sort int8, firstLayer int, lastLayer int) ([]*types.RewardsDoc, error) {
 	rewardsColl := m.client.Database(database).Collection(rewardsCollection)
 
 	findOptions := options.Find()
@@ -237,12 +256,31 @@ func (m *ReadDB) GetRewards(account string, skip int64, limit int64, sort int8) 
 	findOptions.SetLimit(limit)
 	findOptions.SetSort(bson.M{"layer": sort})
 
+	filter := bson.D{
+		{Key: "coinbase", Value: account},
+	}
+	if firstLayer > -1 && lastLayer > -1 {
+		filter = bson.D{
+			{Key: "coinbase", Value: account},
+			{"layer", bson.D{{"$gte", firstLayer}}},
+			{"layer", bson.D{{"$lte", lastLayer}}},
+		}
+	} else if firstLayer > -1 {
+		filter = bson.D{
+			{Key: "coinbase", Value: account},
+			{"layer", bson.D{{"$gte", firstLayer}}},
+		}
+	} else if lastLayer > -1 {
+		filter = bson.D{
+			{Key: "coinbase", Value: account},
+			{"layer", bson.D{{"$lte", lastLayer}}},
+		}
+	}
+
 	ctx := context.TODO()
 	cursor, err := rewardsColl.Find(
 		ctx,
-		bson.D{
-			{Key: "coinbase", Value: account},
-		},
+		filter,
 		findOptions,
 	)
 	if err != nil {

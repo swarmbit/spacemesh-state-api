@@ -61,7 +61,7 @@ func (a *AccountRoutes) GetAccount(c *gin.Context) {
 		})
 		return
 	}
-	numberOfRewards, err := a.db.CountRewards(accountAddress)
+	numberOfRewards, err := a.db.CountRewards(accountAddress, -1, -1)
 	if err != nil {
 		log.Println(err)
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -95,6 +95,25 @@ func (a *AccountRoutes) GetAccountRewards(c *gin.Context) {
 	limitStr := c.DefaultQuery("limit", "20")
 	sortStr := c.DefaultQuery("sort", "asc")
 
+	firstLayerStr := c.DefaultQuery("firstLayer", "-1")
+	lastLayerStr := c.DefaultQuery("lastLayer", "-1")
+
+	firstLayer, err := strconv.Atoi(firstLayerStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "firstLayer must be a valid integer",
+			})
+		return
+	}
+
+	lastLayer, err := strconv.Atoi(lastLayerStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "lastLayer must be a valid integer",
+			})
+		return
+	}
+
 	offset, err := strconv.Atoi(offsetStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -125,8 +144,8 @@ func (a *AccountRoutes) GetAccountRewards(c *gin.Context) {
 	}
 
 	accountAddress := c.Param("accountAddress")
-	rewards, errRewards := a.db.GetRewards(accountAddress, int64(offset), int64(limit), sort)
-	count, errCount := a.db.CountRewards(accountAddress)
+	rewards, errRewards := a.db.GetRewards(accountAddress, int64(offset), int64(limit), sort, firstLayer, lastLayer)
+	count, errCount := a.db.CountRewards(accountAddress, firstLayer, lastLayer)
 
 	if errRewards != nil || errCount != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
