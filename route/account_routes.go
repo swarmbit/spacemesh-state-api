@@ -102,7 +102,7 @@ func (a *AccountRoutes) GetAccountRewards(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "firstLayer must be a valid integer",
-			})
+		})
 		return
 	}
 
@@ -110,7 +110,7 @@ func (a *AccountRoutes) GetAccountRewards(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "lastLayer must be a valid integer",
-			})
+		})
 		return
 	}
 
@@ -341,6 +341,41 @@ func (a *AccountRoutes) GetAccountRewardsDetails(c *gin.Context) {
 			PredictedRewards:  uint64(predictedRewards),
 		},
 	})
+}
+
+func (a *AccountRoutes) FilterEpochActiveNodes(c *gin.Context) {
+	accountAddress := c.Param("accountAddress")
+
+	epochStr := c.Param("epoch")
+	epoch, err := strconv.Atoi(epochStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "epoch must be a valid integer",
+		})
+		return
+	}
+
+	var req types.NodeFilterRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	nodes := req.Nodes
+
+	activeNodes, err := a.db.FilterAccountAtxNodesForEpoch(accountAddress, uint64(epoch-1), nodes)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to filter nodes",
+		})
+		return
+	}
+
+	c.JSON(200, &types.ActiveNodesEpoch{
+		Nodes: activeNodes,
+	})
+
 }
 
 func (a *AccountRoutes) GetAccountRewardsDetailsEpoch(c *gin.Context) {

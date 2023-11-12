@@ -1,5 +1,8 @@
 package types
 
+type ActiveNodesEpoch struct {
+	Nodes []string `json:"nodes"`
+}
 type Account struct {
 	Balance              uint64 `json:"balance"`
 	USDValue             int64 `json:"usdValue"`

@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/swarmbit/spacemesh-state-api/types"
@@ -460,6 +461,46 @@ func (m *ReadDB) CountAtxEpoch(epoch uint64) (int64, error) {
 		return 0, err
 	}
 	return atxResult, nil
+}
+
+func (m *ReadDB) FilterAccountAtxNodesForEpoch(account string, epoch uint64, nodes []string) ([]string, error) {
+	atxColl := m.client.Database(database).Collection(atxsCollection)
+
+
+	findOptions := options.Find()
+	findOptions.SetProjection(bson.D{{"node_id", 1}})
+
+	ctx := context.TODO()
+	filter := bson.M{
+		"coinbase":     account,
+		"publishepoch": epoch,
+		"node_id": bson.M{"$in": nodes},
+	}
+
+	cursor, err := atxColl.Find(
+		ctx,
+		filter,
+		findOptions,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	results := make([]string, 0)
+
+	for cursor.Next(context.TODO()) {
+		var result bson.M
+		if err := cursor.Decode(&result); err != nil {
+			return nil, err
+		}
+		value, ok := result["node_id"]
+		if !ok {
+			return nil, errors.New("node_id not present in object")
+		}
+		results = append(results, value.(string))
+	}
+	return results, nil
 }
 
 func (m *ReadDB) GetAtxForEpoch(epoch uint64) ([]*types.AtxDoc, error) {
