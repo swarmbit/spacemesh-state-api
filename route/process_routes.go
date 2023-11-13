@@ -36,8 +36,12 @@ func AddRoutes(readDB *database.ReadDB, router *gin.Engine, priceResolver *price
 		accountRoutes.GetAccountRewardsDetailsEpoch(c)
 	})
 
-	router.GET("/account/:accountAddress/atx/:epoch/filter-active-nodes", func(c *gin.Context) {
+	router.POST("/account/:accountAddress/atx/:epoch/filter-active-nodes", func(c *gin.Context) {
 		accountRoutes.FilterEpochActiveNodes(c)
+	})
+
+	router.GET("/account/:accountAddress/atx/:epoch", func(c *gin.Context) {
+		accountRoutes.GetEpochAtx(c)
 	})
 
 	router.GET("/network/info", func(c *gin.Context) {
@@ -59,7 +63,7 @@ func AddRoutes(readDB *database.ReadDB, router *gin.Engine, priceResolver *price
 	router.GET("/nodes/:nodeId/rewards/eligibility", func(c *gin.Context) {
 		nodeRoutes.GetEligibility(c)
 	})
-	
+
 	router.GET("/poets", func(c *gin.Context) {
 		poetRoutes.GetPoets(c)
 	})

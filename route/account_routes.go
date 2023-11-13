@@ -378,6 +378,89 @@ func (a *AccountRoutes) FilterEpochActiveNodes(c *gin.Context) {
 
 }
 
+func (a *AccountRoutes) GetEpochAtx(c *gin.Context) {
+	accountAddress := c.Param("accountAddress")
+
+	epochStr := c.Param("epoch")
+	epoch, err := strconv.Atoi(epochStr)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "epoch must be a valid integer",
+			})
+		return
+	}
+
+	offsetStr := c.DefaultQuery("offset", "0")
+	limitStr := c.DefaultQuery("limit", "20")
+	sortStr := c.DefaultQuery("sort", "asc")
+
+	offset, err := strconv.Atoi(offsetStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "offset must be a valid integer",
+			})
+		return
+	}
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "limit must be a valid integer",
+			})
+		return
+	}
+
+	if offset < 0 || limit < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "offset and limit must be greater or equal to 0",
+			})
+		return
+	}
+
+	var sort int8
+	if sortStr == "desc" {
+		sort = -1
+	} else {
+		sort = 1
+	}
+
+	atxs, errAtx := a.db.GetAccountAtxEpoch(accountAddress, uint64(epoch-1), int64(offset), int64(limit), sort)
+	count, errCount := a.db.CountAccountAtxEpoch(accountAddress, uint64(epoch-1))
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to filter nodes",
+			})
+		return
+	}
+
+	if errAtx != nil || errCount != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status": "Internal Error",
+			"error":  "Failed to fetch atx for account",
+			})
+	} else if atxs != nil {
+
+		atxResponse := make([]*types.Atx, len(atxs))
+
+		for i, a := range atxs {
+			atxResponse[i] = &types.Atx{
+				NodeId: a.NodeID,
+				AtxId: a.AtxID,
+				EffectiveNumUnits: a.EffectiveNumUnits,
+				Received: a.Received,
+			}
+		}
+
+		c.Header("total", strconv.FormatInt(count, 10))
+		c.JSON(200, atxResponse)
+	} else {
+		c.Header("total", strconv.FormatInt(count, 10))
+		c.JSON(200, make([]*types.Atx, 0))
+	}
+
+}
+
 func (a *AccountRoutes) GetAccountRewardsDetailsEpoch(c *gin.Context) {
 	accountAddress := c.Param("accountAddress")
 
