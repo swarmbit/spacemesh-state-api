@@ -9,7 +9,7 @@ server:
 	cd server; go build -o $(BIN_DIR)$@ .
 .PHONY: server
 
-run-local:
+run-local: build
 	./build/server ./local/config.json
 
 docker-build-api:
