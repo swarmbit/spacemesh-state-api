@@ -4,6 +4,13 @@ type ActiveNodesEpoch struct {
 	Nodes []string `json:"nodes"`
 }
 
+type Epoch struct {
+	EffectiveUnitsCommited uint64 `json:"effectiveUnitsCommited"`
+	EpochSubsidy           uint64 `json:"epochSubsidy"`
+	TotalWeight            uint64 `json:"totalWeight"`
+	TotalActiveSmeshers    uint64 `json:"totalActiveSmeshers"`
+}
+
 type Atx struct {
 	NodeId            string `json:"nodeId"`
 	AtxId             string `json:"atxId"`
