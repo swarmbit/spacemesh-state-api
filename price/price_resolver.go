@@ -58,9 +58,7 @@ func (p *PriceResolver) fetchPrice() {
 		return
 	}
 
-	if response.Quotes["USD"] != nil {
-		p.priceMap.Store(priceKey, &response)
-	}
+	p.priceMap.Store(priceKey, &response)
 
 }
 
