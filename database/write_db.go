@@ -229,7 +229,7 @@ func (m *WriteDB) SaveAtx(atx *nats.Atx) error {
 			updateResult, err = accountsColl.UpdateOne(
 				context.TODO(),
 				bson.D{{Key: "_id", Value: atxDoc.Coinbase}},
-				bson.D{{Key: "$set", Value: bson.D{
+				bson.D{{Key: "$setOnInsert", Value: bson.D{
 					{Key: "_id", Value: atxDoc.Coinbase},
 				}}},
 				options.Update().SetUpsert(true),
