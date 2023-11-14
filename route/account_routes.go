@@ -61,7 +61,7 @@ func (a *AccountRoutes) GetAccount(c *gin.Context) {
 		})
 		return
 	}
-	numberOfRewards, err := a.db.CountRewards(accountAddress)
+	numberOfRewards, err := a.db.CountRewards(accountAddress, -1, -1)
 	if err != nil {
 		log.Println(err)
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -71,9 +71,15 @@ func (a *AccountRoutes) GetAccount(c *gin.Context) {
 		return
 	}
 
+	priceValue := a.priceResolver.GetPrice()
+	dollarValue := int64(-1)
+	if priceValue > -1 {
+		dollarValue = int64(priceValue * float64(account.Balance))
+	}
+
 	c.JSON(200, &types.Account{
 		Balance:  account.Balance,
-		USDValue: uint64(a.priceResolver.GetPrice() * float64(account.Balance)),
+		USDValue: dollarValue,
 		// legacy
 		BalanceDisplay:       "",
 		Address:              accountAddress,
@@ -88,6 +94,25 @@ func (a *AccountRoutes) GetAccountRewards(c *gin.Context) {
 	offsetStr := c.DefaultQuery("offset", "0")
 	limitStr := c.DefaultQuery("limit", "20")
 	sortStr := c.DefaultQuery("sort", "asc")
+
+	firstLayerStr := c.DefaultQuery("firstLayer", "-1")
+	lastLayerStr := c.DefaultQuery("lastLayer", "-1")
+
+	firstLayer, err := strconv.Atoi(firstLayerStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "firstLayer must be a valid integer",
+		})
+		return
+	}
+
+	lastLayer, err := strconv.Atoi(lastLayerStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "lastLayer must be a valid integer",
+		})
+		return
+	}
 
 	offset, err := strconv.Atoi(offsetStr)
 	if err != nil {
@@ -119,8 +144,8 @@ func (a *AccountRoutes) GetAccountRewards(c *gin.Context) {
 	}
 
 	accountAddress := c.Param("accountAddress")
-	rewards, errRewards := a.db.GetRewards(accountAddress, int64(offset), int64(limit), sort)
-	count, errCount := a.db.CountRewards(accountAddress)
+	rewards, errRewards := a.db.GetRewards(accountAddress, int64(offset), int64(limit), sort, firstLayer, lastLayer)
+	count, errCount := a.db.CountRewards(accountAddress, firstLayer, lastLayer)
 
 	if errRewards != nil || errCount != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -316,6 +341,124 @@ func (a *AccountRoutes) GetAccountRewardsDetails(c *gin.Context) {
 			PredictedRewards:  uint64(predictedRewards),
 		},
 	})
+}
+
+func (a *AccountRoutes) FilterEpochActiveNodes(c *gin.Context) {
+	accountAddress := c.Param("accountAddress")
+
+	epochStr := c.Param("epoch")
+	epoch, err := strconv.Atoi(epochStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "epoch must be a valid integer",
+		})
+		return
+	}
+
+	var req types.NodeFilterRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	nodes := req.Nodes
+
+	activeNodes, err := a.db.FilterAccountAtxNodesForEpoch(accountAddress, uint64(epoch-1), nodes)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to filter nodes",
+		})
+		return
+	}
+
+	c.JSON(200, &types.ActiveNodesEpoch{
+		Nodes: activeNodes,
+	})
+
+}
+
+func (a *AccountRoutes) GetEpochAtx(c *gin.Context) {
+	accountAddress := c.Param("accountAddress")
+
+	epochStr := c.Param("epoch")
+	epoch, err := strconv.Atoi(epochStr)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "epoch must be a valid integer",
+			})
+		return
+	}
+
+	offsetStr := c.DefaultQuery("offset", "0")
+	limitStr := c.DefaultQuery("limit", "20")
+	sortStr := c.DefaultQuery("sort", "asc")
+
+	offset, err := strconv.Atoi(offsetStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "offset must be a valid integer",
+			})
+		return
+	}
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "limit must be a valid integer",
+			})
+		return
+	}
+
+	if offset < 0 || limit < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "offset and limit must be greater or equal to 0",
+			})
+		return
+	}
+
+	var sort int8
+	if sortStr == "desc" {
+		sort = -1
+	} else {
+		sort = 1
+	}
+
+	atxs, errAtx := a.db.GetAccountAtxEpoch(accountAddress, uint64(epoch-1), int64(offset), int64(limit), sort)
+	count, errCount := a.db.CountAccountAtxEpoch(accountAddress, uint64(epoch-1))
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to filter nodes",
+			})
+		return
+	}
+
+	if errAtx != nil || errCount != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status": "Internal Error",
+			"error":  "Failed to fetch atx for account",
+			})
+	} else if atxs != nil {
+
+		atxResponse := make([]*types.Atx, len(atxs))
+
+		for i, a := range atxs {
+			atxResponse[i] = &types.Atx{
+				NodeId: a.NodeID,
+				AtxId: a.AtxID,
+				EffectiveNumUnits: a.EffectiveNumUnits,
+				Received: a.Received,
+			}
+		}
+
+		c.Header("total", strconv.FormatInt(count, 10))
+		c.JSON(200, atxResponse)
+	} else {
+		c.Header("total", strconv.FormatInt(count, 10))
+		c.JSON(200, make([]*types.Atx, 0))
+	}
+
 }
 
 func (a *AccountRoutes) GetAccountRewardsDetailsEpoch(c *gin.Context) {

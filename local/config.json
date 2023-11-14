@@ -1,0 +1,35 @@
+{
+    "server": {
+        "port": ":8080"
+    },
+    "db": {
+        "uri": "mongodb://localhost:27017"
+    },
+    "nats": {
+        "uri": "nats://localhost:4222"
+    },
+    "poets": [
+        {
+            "name": "Spacemesh",
+            "info": {
+                "description": "Official spacemesh poet",
+                "discord-link": "https://chat.spacemesh.io/"
+            },
+            "settings": {
+                "phase-shift": 240,
+                "cycle-gap": 12
+            }
+        },
+        {
+            "name": "Team24",
+            "info": {
+                "description": "Spacemesh community poet with 24h cycle gap",
+                "discord-link": "https://discord.gg/B62dnMet5"
+            },
+            "settings": {
+                "phase-shift": 288,
+                "cycle-gap": 24
+            }
+        }
+    ]
+}

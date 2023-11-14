@@ -13,7 +13,7 @@ require (
 	go.mongodb.org/mongo-driver v1.12.1
 )
 
-replace github.com/spacemeshos/go-spacemesh => github.com/swarmbit/go-spacemesh v1.2.2-nats
+replace github.com/spacemeshos/go-spacemesh => github.com/swarmbit/go-spacemesh v1.2.4-nats
 
 require (
 	github.com/anacrolix/chansync v0.3.0 // indirect

@@ -1,8 +1,26 @@
 package types
 
+type ActiveNodesEpoch struct {
+	Nodes []string `json:"nodes"`
+}
+
+type Epoch struct {
+	EffectiveUnitsCommited uint64 `json:"effectiveUnitsCommited"`
+	EpochSubsidy           uint64 `json:"epochSubsidy"`
+	TotalWeight            uint64 `json:"totalWeight"`
+	TotalActiveSmeshers    uint64 `json:"totalActiveSmeshers"`
+}
+
+type Atx struct {
+	NodeId            string `json:"nodeId"`
+	AtxId             string `json:"atxId"`
+	EffectiveNumUnits uint32 `json:"effectiveNumUnits"`
+	Received          int64  `json:"received"`
+}
+
 type Account struct {
 	Balance              uint64 `json:"balance"`
-	USDValue             uint64 `json:"usdValue"`
+	USDValue             int64  `json:"usdValue"`
 	BalanceDisplay       string `json:"balanceDisplay"`
 	NumberOfTransactions int64  `json:"numberOfTransactions"`
 	Counter              int64  `json:"counter"`
@@ -21,16 +39,16 @@ type Reward struct {
 }
 
 type Transaction struct {
-	ID              string `json:"id"`
-	Status          uint8  `json:"status"`
+	ID               string `json:"id"`
+	Status           uint8  `json:"status"`
 	PrincipalAccount string `json:"principalAccount"`
-	ReceiverAccount string `json:"receiverAccount"`
-	Fee             uint64 `json:"fee"`
-	Amount          uint64 `json:"amount"`
-	Layer           uint32 `json:"layer"`
-	Counter         uint64 `json:"counter"`
-	Method          string `json:"method"`
-	Timestamp       int64  `json:"timestamp"`
+	ReceiverAccount  string `json:"receiverAccount"`
+	Fee              uint64 `json:"fee"`
+	Amount           uint64 `json:"amount"`
+	Layer            uint32 `json:"layer"`
+	Counter          uint64 `json:"counter"`
+	Method           string `json:"method"`
+	Timestamp        int64  `json:"timestamp"`
 }
 
 type RewardDetails struct {

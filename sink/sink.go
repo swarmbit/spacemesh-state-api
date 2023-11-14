@@ -9,6 +9,7 @@ import (
 	"github.com/nats-io/nats.go"
 	natsS "github.com/spacemeshos/go-spacemesh/nats"
 	"github.com/swarmbit/spacemesh-state-api/database"
+	"github.com/swarmbit/spacemesh-state-api/config"
 )
 
 type Sink struct {
@@ -21,8 +22,8 @@ type Sink struct {
 	malfeasanceSub         *nats.Subscription
 }
 
-func NewSink(writeDB *database.WriteDB) *Sink {
-	nc, err := nats.Connect("nats://spacemesh-nats:4222")
+func NewSink(configValues *config.Config, writeDB *database.WriteDB) *Sink {
+	nc, err := nats.Connect(configValues.Nats.Uri)
 	if err != nil {
 		panic("Failed to connect to NATS")
 	}

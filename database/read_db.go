@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/swarmbit/spacemesh-state-api/types"
@@ -79,13 +80,32 @@ func (m *ReadDB) CountTransactions(account string) (int64, error) {
 	return accountResult, nil
 }
 
-func (m *ReadDB) CountRewards(account string) (int64, error) {
+func (m *ReadDB) CountRewards(account string, firstLayer int, lastLayer int) (int64, error) {
 	rewardsColl := m.client.Database(database).Collection(rewardsCollection)
+
+	filter := bson.D{
+		{Key: "coinbase", Value: account},
+	}
+	if firstLayer > -1 && lastLayer > -1 {
+		filter = bson.D{
+			{Key: "coinbase", Value: account},
+			{"layer", bson.D{{"$gte", firstLayer}}},
+			{"layer", bson.D{{"$lte", lastLayer}}},
+		}
+	} else if firstLayer > -1 {
+		filter = bson.D{
+			{Key: "coinbase", Value: account},
+			{"layer", bson.D{{"$gte", firstLayer}}},
+		}
+	} else if lastLayer > -1 {
+		filter = bson.D{
+			{Key: "coinbase", Value: account},
+			{"layer", bson.D{{"$lte", lastLayer}}},
+		}
+	}
 	rewardsResult, err := rewardsColl.CountDocuments(
 		context.TODO(),
-		bson.D{
-			{Key: "coinbase", Value: account},
-		},
+		filter,
 	)
 	if err != nil {
 		return 0, err
@@ -229,7 +249,7 @@ func (m *ReadDB) SumRewardsLayers(account string, minLayer uint32, maxLayer uint
 	return totalSum, nil
 }
 
-func (m *ReadDB) GetRewards(account string, skip int64, limit int64, sort int8) ([]*types.RewardsDoc, error) {
+func (m *ReadDB) GetRewards(account string, skip int64, limit int64, sort int8, firstLayer int, lastLayer int) ([]*types.RewardsDoc, error) {
 	rewardsColl := m.client.Database(database).Collection(rewardsCollection)
 
 	findOptions := options.Find()
@@ -237,12 +257,31 @@ func (m *ReadDB) GetRewards(account string, skip int64, limit int64, sort int8) 
 	findOptions.SetLimit(limit)
 	findOptions.SetSort(bson.M{"layer": sort})
 
+	filter := bson.D{
+		{Key: "coinbase", Value: account},
+	}
+	if firstLayer > -1 && lastLayer > -1 {
+		filter = bson.D{
+			{Key: "coinbase", Value: account},
+			{"layer", bson.D{{"$gte", firstLayer}}},
+			{"layer", bson.D{{"$lte", lastLayer}}},
+		}
+	} else if firstLayer > -1 {
+		filter = bson.D{
+			{Key: "coinbase", Value: account},
+			{"layer", bson.D{{"$gte", firstLayer}}},
+		}
+	} else if lastLayer > -1 {
+		filter = bson.D{
+			{Key: "coinbase", Value: account},
+			{"layer", bson.D{{"$lte", lastLayer}}},
+		}
+	}
+
 	ctx := context.TODO()
 	cursor, err := rewardsColl.Find(
 		ctx,
-		bson.D{
-			{Key: "coinbase", Value: account},
-		},
+		filter,
 		findOptions,
 	)
 	if err != nil {
@@ -422,6 +461,96 @@ func (m *ReadDB) CountAtxEpoch(epoch uint64) (int64, error) {
 		return 0, err
 	}
 	return atxResult, nil
+}
+
+func (m *ReadDB) FilterAccountAtxNodesForEpoch(account string, epoch uint64, nodes []string) ([]string, error) {
+	atxColl := m.client.Database(database).Collection(atxsCollection)
+
+	findOptions := options.Find()
+	findOptions.SetProjection(bson.D{{"node_id", 1}})
+
+	ctx := context.TODO()
+	filter := bson.M{
+		"coinbase":     account,
+		"publishepoch": epoch,
+		"node_id":      bson.M{"$in": nodes},
+	}
+
+	cursor, err := atxColl.Find(
+		ctx,
+		filter,
+		findOptions,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	results := make([]string, 0)
+
+	for cursor.Next(context.TODO()) {
+		var result bson.M
+		if err := cursor.Decode(&result); err != nil {
+			return nil, err
+		}
+		value, ok := result["node_id"]
+		if !ok {
+			return nil, errors.New("node_id not present in object")
+		}
+		results = append(results, value.(string))
+	}
+	return results, nil
+}
+
+func (m *ReadDB) CountAccountAtxEpoch(account string, epoch uint64) (int64, error) {
+	atxColl := m.client.Database(database).Collection(atxsCollection)
+
+	ctx := context.TODO()
+	filter := bson.M{
+		"coinbase":     account,
+		"publishepoch": epoch,
+	}
+
+	count, err := atxColl.CountDocuments(
+		ctx,
+		filter,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+
+}
+
+func (m *ReadDB) GetAccountAtxEpoch(account string, epoch uint64, skip int64, limit int64, sort int8) ([]*types.AtxDoc, error) {
+	atxColl := m.client.Database(database).Collection(atxsCollection)
+
+	findOptions := options.Find()
+	findOptions.SetSkip(skip)
+	findOptions.SetLimit(limit)
+	findOptions.SetSort(bson.M{"received": sort})
+
+	ctx := context.TODO()
+	filter := bson.M{
+		"coinbase":     account,
+		"publishepoch": epoch,
+	}
+
+	cursor, err := atxColl.Find(
+		ctx,
+		filter,
+		findOptions,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var atx []*types.AtxDoc
+	if err = cursor.All(ctx, &atx); err != nil {
+		return nil, err
+	}
+	return atx, nil
 }
 
 func (m *ReadDB) GetAtxForEpoch(epoch uint64) ([]*types.AtxDoc, error) {

@@ -2,17 +2,20 @@ package route
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/swarmbit/spacemesh-state-api/config"
 	"github.com/swarmbit/spacemesh-state-api/database"
 	"github.com/swarmbit/spacemesh-state-api/network"
 	"github.com/swarmbit/spacemesh-state-api/price"
 )
 
-func AddRoutes(readDB *database.ReadDB, router *gin.Engine, priceResolver *price.PriceResolver) {
+func AddRoutes(readDB *database.ReadDB, router *gin.Engine, priceResolver *price.PriceResolver, configValues *config.Config) {
 	networkUtils := network.NewNetworkUtils()
 	state := network.NewNetworkState(readDB, networkUtils, priceResolver)
 	accountRoutes := NewAccountRoutes(readDB, networkUtils, state, priceResolver)
 	networkRoutes := NewNetworkRoutes(state)
+	poetRoutes := NewPoetRoutes(configValues)
 	nodeRoutes := NewNodeRoutes(readDB, networkUtils, state)
+	epochRoutes := NewEpochRoutes(readDB, networkUtils, state)
 
 	router.GET("/account/:accountAddress", func(c *gin.Context) {
 		accountRoutes.GetAccount(c)
@@ -34,6 +37,14 @@ func AddRoutes(readDB *database.ReadDB, router *gin.Engine, priceResolver *price
 		accountRoutes.GetAccountRewardsDetailsEpoch(c)
 	})
 
+	router.POST("/account/:accountAddress/atx/:epoch/filter-active-nodes", func(c *gin.Context) {
+		accountRoutes.FilterEpochActiveNodes(c)
+	})
+
+	router.GET("/account/:accountAddress/atx/:epoch", func(c *gin.Context) {
+		accountRoutes.GetEpochAtx(c)
+	})
+
 	router.GET("/network/info", func(c *gin.Context) {
 		networkRoutes.GetInfo(c)
 	})
@@ -52,5 +63,13 @@ func AddRoutes(readDB *database.ReadDB, router *gin.Engine, priceResolver *price
 
 	router.GET("/nodes/:nodeId/rewards/eligibility", func(c *gin.Context) {
 		nodeRoutes.GetEligibility(c)
+	})
+
+	router.GET("/epochs/:epoch", func(c *gin.Context) {
+		epochRoutes.GetEpoch(c)
+	})
+
+	router.GET("/poets", func(c *gin.Context) {
+		poetRoutes.GetPoets(c)
 	})
 }

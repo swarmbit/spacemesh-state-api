@@ -48,17 +48,20 @@ func (p *PriceResolver) fetchPrice() {
 	resp, err := http.Get("https://api.coinpaprika.com/v1/tickers/smh-spacemesh")
 	if err != nil {
 		fmt.Println("Error:", err)
+		p.priceMap.Delete(priceKey)
 		return
 	}
 	defer resp.Body.Close()
 
 	var response PriceResponse
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		p.priceMap.Delete(priceKey)
 		fmt.Println("Error:", err)
 		return
 	}
 
 	p.priceMap.Store(priceKey, &response)
+
 }
 
 type PriceResponse struct {
