@@ -27,7 +27,7 @@ func StartServer(configValues *config.Config) {
 		panic("Failed to open document read db")
 	}
 
-	priceResolver := price.NewPriceResolver()
+	priceResolver := price.NewPriceResolver(configValues)
 
 	sink := sink.NewSink(configValues, writeDB)
 	sink.StartRewardsSink()

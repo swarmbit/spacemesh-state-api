@@ -2,9 +2,15 @@ package config
 
 type Config struct {
 	Server *ServerConfig `json:"server"`
+	Price  *PriceConfig  `json:"price"`
 	DB     *DBConfig     `json:"db"`
 	Nats   *NatsConfig   `json:"nats"`
 	Poets  []*PoetConfig `json:"poets"`
+}
+
+type PriceConfig struct {
+	Provider    string `json:"provider"`
+	RefreshTime int    `json:"refreshTime"`
 }
 
 type ServerConfig struct {

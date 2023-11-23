@@ -8,6 +8,10 @@
     "nats": {
         "uri": "nats://localhost:4222"
     },
+    "price": {
+        "provider": "coinpaprika",
+        "refreshTime": 15
+    },
     "poets": [
         {
             "name": "Spacemesh",
