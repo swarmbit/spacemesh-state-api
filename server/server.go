@@ -12,7 +12,7 @@ import (
 	"github.com/swarmbit/spacemesh-state-api/database"
 	"github.com/swarmbit/spacemesh-state-api/price"
 	"github.com/swarmbit/spacemesh-state-api/route"
-	//"github.com/swarmbit/spacemesh-state-api/sink"
+	"github.com/swarmbit/spacemesh-state-api/sink"
 )
 
 func StartServer(configValues *config.Config) {
@@ -29,13 +29,13 @@ func StartServer(configValues *config.Config) {
 
 	priceResolver := price.NewPriceResolver()
 
-	//sink := sink.NewSink(configValues, writeDB)
-	//sink.StartRewardsSink()
-	//sink.StartLayersSink()
-	//sink.StartAtxSink()
-	//sink.StartTransactionCreatedSink()
-	//sink.StartTransactionResultSink()
-	//sink.StartMalfeasanceSink()
+	sink := sink.NewSink(configValues, writeDB)
+	sink.StartRewardsSink()
+	sink.StartLayersSink()
+	sink.StartAtxSink()
+	sink.StartTransactionCreatedSink()
+	sink.StartTransactionResultSink()
+	sink.StartMalfeasanceSink()
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
