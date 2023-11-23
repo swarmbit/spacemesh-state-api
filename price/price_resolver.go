@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	"strconv"
 )
 
 const priceKey = "priceKey"
@@ -46,10 +47,42 @@ func (p *PriceResolver) periodicPriceFetch() {
 
 func (p *PriceResolver) fetchPrice() {
 	resp, err := http.Get("https://api.coinpaprika.com/v1/tickers/smh-spacemesh")
-	if err != nil {
-		fmt.Println("Error:", err)
-		p.priceMap.Delete(priceKey)
-		return
+	if err != nil || resp.StatusCode == 404 {
+		fmt.Println("Error calling coinpaprika, try XT exchange")
+		respXT, err := http.Get("https://www.xt.com/sapi/v4/market/public/ticker/24h?symbol=smh_usdt")
+		if err != nil {
+			p.priceMap.Delete(priceKey)
+			return
+		}
+		var xtResponce PriceXTResponse
+		if err := json.NewDecoder(respXT.Body).Decode(&xtResponce); err != nil {
+			p.priceMap.Delete(priceKey)
+			fmt.Println("Error:", err)
+			return
+		}
+
+		if len(xtResponce.Result) > 0 {
+			price, err := strconv.ParseFloat(xtResponce.Result[0].Current, 64)
+			if err != nil {
+				p.priceMap.Delete(priceKey)
+				fmt.Println("Error no price on XT response")
+				return
+			}
+			fmt.Println("Price: ", price)
+			quotes := make(map[string]*PriceQuote)
+			quotes["USD"] = &PriceQuote{
+				Price: price,
+			}
+			p.priceMap.Store(priceKey, &PriceResponse{
+				Quotes: quotes,
+			})
+			return
+		} else {
+			p.priceMap.Delete(priceKey)
+			fmt.Println("Error no price on XT response")
+			return
+		}
+
 	}
 	defer resp.Body.Close()
 
@@ -70,4 +103,12 @@ type PriceResponse struct {
 
 type PriceQuote struct {
 	Price float64 `json:"price"`
+}
+
+type PriceXTResponse struct {
+	Result []PriceXTResult `json:"result"`
+}
+
+type PriceXTResult struct {
+	Current string `json:"c"`
 }
