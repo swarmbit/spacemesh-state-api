@@ -13,7 +13,7 @@ run-local: build
 	./build/server ./local/config.json
 
 docker-build-api:
-	docker build -t ghcr.io/swarmbit/spacemesh-state-api-v2:v2.2.11 .
+	docker build -t ghcr.io/swarmbit/spacemesh-state-api-v2:v2.2.12 .
 
 docker-push-api: docker-build-api
-	docker push ghcr.io/swarmbit/spacemesh-state-api-v2:v2.2.11
+	docker push ghcr.io/swarmbit/spacemesh-state-api-v2:v2.2.12
