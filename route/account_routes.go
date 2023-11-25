@@ -35,6 +35,91 @@ func NewAccountRoutes(
 	}
 }
 
+func (a *AccountRoutes) GetAccountsPost(c *gin.Context) {
+	offsetStr := c.DefaultQuery("offset", "0")
+	limitStr := c.DefaultQuery("limit", "20")
+	sortStr := c.DefaultQuery("sort", "desc")
+
+	offset, err := strconv.Atoi(offsetStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "offset must be a valid integer",
+			})
+		return
+	}
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "limit must be a valid integer",
+			})
+		return
+	}
+
+	if offset < 0 || limit < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "offset and limit must be greater or equal to 0",
+			})
+		return
+	}
+
+	var sort int8
+	if sortStr == "asc" {
+		sort = 1
+	} else {
+		sort = -1
+	}
+
+	epochStr := c.Param("epoch")
+	epoch, err := strconv.Atoi(epochStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "epoch must be a valid integer",
+			})
+		return
+	}
+
+	accounts, errAccounts := a.db.GetAccountsPostEpoch(epoch - 1, int64(offset), int64(limit), sort)
+	if err != nil {
+		fmt.Println(err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "failed to fetch accounts",
+			})
+		return
+	}
+
+	count, errCount := a.db.CountAccountsPostEpoch(epoch - 1)
+	if err != nil {
+		fmt.Println(err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "failed to count accounts",
+			})
+		return
+	}
+
+	if errAccounts != nil || errCount != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status": "Internal Error",
+			"error":  "Failed to fetch account",
+			})
+	} else if accounts != nil {
+
+		accountsResponse := make([]*types.AccountPostResponse, len(accounts))
+
+		for i, v := range accounts {
+			accountsResponse[i] = &types.AccountPostResponse{
+				Account:  v.Id.Coinbase,
+				TotalEffectiveNumUnits:  v.TotalEffectiveNumUnits,
+				}
+		}
+
+		c.Header("total", strconv.FormatInt(count, 10))
+		c.JSON(200, accountsResponse)
+	} else {
+		c.Header("total", strconv.FormatInt(count, 10))
+		c.JSON(200, make([]*types.AccountPost, 0))
+	}
+}
+
 func (a *AccountRoutes) GetAccounts(c *gin.Context) {
 
 	offsetStr := c.DefaultQuery("offset", "0")

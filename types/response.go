@@ -20,9 +20,14 @@ type Atx struct {
 }
 
 type ShortAccount struct {
-	Balance              uint64 `json:"balance"`
-	USDValue             int64  `json:"usdValue"`
-	Address              string `json:"address"`
+	Balance  uint64 `json:"balance"`
+	USDValue int64  `json:"usdValue"`
+	Address  string `json:"address"`
+}
+
+type AccountPostResponse struct {
+	Account                string `json:"account"`
+	TotalEffectiveNumUnits int64  `json:"totalEffectiveNumUnits"`
 }
 
 type Account struct {

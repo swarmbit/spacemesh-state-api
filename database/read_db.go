@@ -225,6 +225,64 @@ func (m *ReadDB) CountNodeRewardsLayers(node string, minLayer uint32, maxLayer u
 	return rewardsResult, nil
 }
 
+func (m *ReadDB) CountAccountsPostEpoch(epoch int) (int64, error) {
+	atxColl := m.client.Database(database).Collection(atxsCollection)
+	filter := bson.M{
+		"publishepoch": epoch,
+	}
+	result, err := atxColl.Distinct(
+		context.TODO(),
+		"coinbase",
+		filter,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return int64(len(result)), nil
+}
+
+func (m *ReadDB) GetAccountsPostEpoch(epoch int, skip int64, limit int64, sort int8) ([]*types.AccountPost, error) {
+	atxColl := m.client.Database(database).Collection(atxsCollection)
+
+	pipeline := mongo.Pipeline{
+		bson.D{
+			{Key: "$match", Value: bson.D{
+				{Key: "publishepoch", Value: epoch},
+			},
+			}},
+		bson.D{
+			{"$group", bson.D{
+				{"_id", bson.D{{"coinbase", "$coinbase"}}},
+				{"totalEffectiveNumUnits", bson.D{{"$sum", "$effective_num_units"}}},
+			}},
+		},
+		bson.D{
+			{"$sort", bson.D{{"totalEffectiveNumUnits", sort}}},
+		},
+		bson.D{
+			{"$skip", skip},
+		},
+		bson.D{
+			{"$limit", limit},
+		},
+	}
+
+	cursor, err := atxColl.Aggregate(
+		context.TODO(),
+		pipeline,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var results []*types.AccountPost
+	if err = cursor.All(context.TODO(), &results); err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
 func (m *ReadDB) SumNodeRewardsLayers(node string, minLayer uint32, maxLayer uint32) (int64, error) {
 	rewardsColl := m.client.Database(database).Collection(rewardsCollection)
 

@@ -81,6 +81,14 @@ type NetworkInfoDoc struct {
 	CirculatingSupply uint64 `bson:"circulatingSupply"`
 }
 
+type AccountPost struct {
+	Id                     *AccountPostId `bson:"_id"`
+	TotalEffectiveNumUnits int64          `bson:"totalEffectiveNumUnits"`
+}
+
+type AccountPostId struct {
+	Coinbase string `bson:"coinbase"`
+}
 type AggregationTotal struct {
 	TotalSum int64 `bson:"totalSum"`
 }
