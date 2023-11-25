@@ -22,6 +22,10 @@ func AddRoutes(readDB *database.ReadDB, router *gin.Engine, priceResolver *price
 		accountRoutes.GetAccounts(c)
 	})
 
+	router.POST("/account/group", func(c *gin.Context) {
+		accountRoutes.GetAccountGroup(c)
+	})
+
 	router.GET("/account/post/epoch/:epoch", func(c *gin.Context) {
 		accountRoutes.GetAccountsPost(c)
 	})

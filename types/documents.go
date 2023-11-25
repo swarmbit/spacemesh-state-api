@@ -86,6 +86,11 @@ type AccountPost struct {
 	TotalEffectiveNumUnits int64          `bson:"totalEffectiveNumUnits"`
 }
 
+type AccountGroup struct {
+	Balance      int64 `bson:"balance"`
+	TotalRewards int64 `bson:"totalRewards"`
+}
+
 type AccountPostId struct {
 	Coinbase string `bson:"coinbase"`
 }

@@ -44,21 +44,21 @@ func (a *AccountRoutes) GetAccountsPost(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "offset must be a valid integer",
-			})
+		})
 		return
 	}
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "limit must be a valid integer",
-			})
+		})
 		return
 	}
 
 	if offset < 0 || limit < 0 {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "offset and limit must be greater or equal to 0",
-			})
+		})
 		return
 	}
 
@@ -74,16 +74,16 @@ func (a *AccountRoutes) GetAccountsPost(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "epoch must be a valid integer",
-			})
+		})
 		return
 	}
 
-	accounts, errAccounts := a.db.GetAccountsPostEpoch(epoch - 1, int64(offset), int64(limit), sort)
+	accounts, errAccounts := a.db.GetAccountsPostEpoch(epoch-1, int64(offset), int64(limit), sort)
 	if err != nil {
 		fmt.Println(err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "failed to fetch accounts",
-			})
+		})
 		return
 	}
 
@@ -92,7 +92,7 @@ func (a *AccountRoutes) GetAccountsPost(c *gin.Context) {
 		fmt.Println(err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "failed to count accounts",
-			})
+		})
 		return
 	}
 
@@ -100,16 +100,16 @@ func (a *AccountRoutes) GetAccountsPost(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status": "Internal Error",
 			"error":  "Failed to fetch account",
-			})
+		})
 	} else if accounts != nil {
 
 		accountsResponse := make([]*types.AccountPostResponse, len(accounts))
 
 		for i, v := range accounts {
 			accountsResponse[i] = &types.AccountPostResponse{
-				Account:  v.Id.Coinbase,
-				TotalEffectiveNumUnits:  v.TotalEffectiveNumUnits,
-				}
+				Account:                v.Id.Coinbase,
+				TotalEffectiveNumUnits: v.TotalEffectiveNumUnits,
+			}
 		}
 
 		c.Header("total", strconv.FormatInt(count, 10))
@@ -189,9 +189,10 @@ func (a *AccountRoutes) GetAccounts(c *gin.Context) {
 				dollarValue = int64(priceValue * float64(v.Balance))
 			}
 			accountsResponse[i] = &types.ShortAccount{
-				Balance:  v.Balance,
-				Address:  v.Address,
-				USDValue: dollarValue,
+				Balance:      v.Balance,
+				Address:      v.Address,
+				USDValue:     dollarValue,
+				TotalRewards: v.TotalRewards,
 			}
 		}
 
@@ -201,6 +202,36 @@ func (a *AccountRoutes) GetAccounts(c *gin.Context) {
 		c.Header("total", strconv.FormatInt(count, 10))
 		c.JSON(200, make([]*types.Transaction, 0))
 	}
+}
+
+func (a *AccountRoutes) GetAccountGroup(c *gin.Context) {
+	var req types.AccounGroupRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	result, err := a.db.GetAccountsGroup(req.Accounts)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status": "Internal Error",
+			"error":  "Failed to fetch account group",
+		})
+		return
+	}
+
+	priceValue := a.priceResolver.GetPrice()
+	dollarValue := int64(-1)
+	if priceValue > -1 {
+		dollarValue = int64(priceValue * float64(result.Balance))
+	}
+
+	c.JSON(200, &types.AccountGroupResponse{
+		Balance:      uint64(result.Balance),
+		USDValue:     dollarValue,
+		TotalRewards: uint64(result.TotalRewards),
+	})
+
 }
 
 func (a *AccountRoutes) GetAccount(c *gin.Context) {

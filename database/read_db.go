@@ -241,6 +241,47 @@ func (m *ReadDB) CountAccountsPostEpoch(epoch int) (int64, error) {
 	return int64(len(result)), nil
 }
 
+func (m *ReadDB) GetAccountsGroup(accounts []string) (*types.AccountGroup, error) {
+	accountsColl := m.client.Database(database).Collection(accountsCollection)
+
+	pipeline := mongo.Pipeline{
+		bson.D{
+			{Key: "$match", Value: bson.D{
+				{"_id", bson.D{
+					{"$in", accounts},
+				}},
+			},
+			}},
+		bson.D{
+			{"$group", bson.D{
+				{"_id", nil},
+				{"totalRewards", bson.D{{"$sum", "$totalRewards"}}},
+				{"balance", bson.D{{"$sum", "$balance"}}},
+			}},
+		},
+	}
+
+	cursor, err := accountsColl.Aggregate(
+		context.TODO(),
+		pipeline,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var results []*types.AccountGroup
+	if err = cursor.All(context.TODO(), &results); err != nil {
+		return nil, err
+	}
+
+	if len(results) > 0 {
+		return results[0], nil
+	} else {
+		return &types.AccountGroup{}, nil
+	}
+}
+
 func (m *ReadDB) GetAccountsPostEpoch(epoch int, skip int64, limit int64, sort int8) ([]*types.AccountPost, error) {
 	atxColl := m.client.Database(database).Collection(atxsCollection)
 
