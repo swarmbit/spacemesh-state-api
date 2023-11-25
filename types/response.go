@@ -19,6 +19,12 @@ type Atx struct {
 	Received          int64  `json:"received"`
 }
 
+type ShortAccount struct {
+	Balance              uint64 `json:"balance"`
+	USDValue             int64  `json:"usdValue"`
+	Address              string `json:"address"`
+}
+
 type Account struct {
 	Balance              uint64 `json:"balance"`
 	USDValue             int64  `json:"usdValue"`

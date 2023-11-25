@@ -18,6 +18,10 @@ func AddRoutes(readDB *database.ReadDB, router *gin.Engine, priceResolver *price
 	epochRoutes := NewEpochRoutes(readDB, networkUtils, state)
 	layersRoutes := NewLayersRoutes(readDB, networkUtils, state)
 
+	router.GET("/account", func(c *gin.Context) {
+		accountRoutes.GetAccounts(c)
+	})
+
 	router.GET("/account/:accountAddress", func(c *gin.Context) {
 		accountRoutes.GetAccount(c)
 	})

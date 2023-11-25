@@ -25,6 +25,34 @@ func NewReadDB(dbConnection string) (*ReadDB, error) {
 	}, err
 }
 
+func (m *ReadDB) GetAccounts(skip int64, limit int64, sort int8) ([]*types.AccountDoc, error) {
+	accountsColl := m.client.Database(database).Collection(accountsCollection)
+
+	findOptions := options.Find()
+	findOptions.SetSkip(skip)
+	findOptions.SetLimit(limit)
+	findOptions.SetSort(bson.M{"balance": sort})
+
+	filter := bson.D{}
+
+	ctx := context.TODO()
+	cursor, err := accountsColl.Find(
+		ctx,
+		filter,
+		findOptions,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var accounts []*types.AccountDoc
+	if err = cursor.All(ctx, &accounts); err != nil {
+		return nil, err
+	}
+	return accounts, nil
+}
+
 func (m *ReadDB) GetAccount(account string) (*types.AccountDoc, error) {
 	accountsColl := m.client.Database(database).Collection(accountsCollection)
 	accountResult := accountsColl.FindOne(
