@@ -102,6 +102,22 @@ func createIndexes(client *mongo.Client) error {
 		return err
 	}
 
+	accountsColl := client.Database(database).Collection(accountsCollection)
+	accountsIndexes := []mongo.IndexModel{
+		{
+			Keys: bson.D{
+				{Key: "balance", Value: -1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
+	}
+
+	_, err = accountsColl.Indexes().CreateMany(context.TODO(), accountsIndexes)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
 	atxColl := client.Database(database).Collection(atxsCollection)
 	atxIndexes := []mongo.IndexModel{
 		{

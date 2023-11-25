@@ -2,6 +2,7 @@ package route
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/swarmbit/spacemesh-state-api/config"
 	"github.com/swarmbit/spacemesh-state-api/database"
 	"github.com/swarmbit/spacemesh-state-api/network"
 	"github.com/swarmbit/spacemesh-state-api/types"
@@ -51,10 +52,22 @@ func (e *EpochRoutes) GetEpoch(c *gin.Context) {
 		})
 		return
 	}
+
+	firstLayer := uint32(epoch * config.LayersPerEpoch)
+	lastLayer := firstLayer + config.LayersPerEpoch
+
+	rewardsTotal, err := e.db.SumRewardsLayers("", firstLayer, lastLayer)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to get epoch rewards",
+		})
+		return
+	}
 	c.JSON(200, &types.Epoch{
 		EffectiveUnitsCommited: atxEpochTotals.TotalEffectiveNumUnits,
 		EpochSubsidy:           e.state.GetEpochSubsidy(uint32(epoch)),
 		TotalWeight:            atxEpochTotals.TotalWeight,
+		TotalRewards:           rewardsTotal,
 		TotalActiveSmeshers:    uint64(atxEpoch),
 	})
 }

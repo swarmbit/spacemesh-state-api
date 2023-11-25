@@ -8,6 +8,7 @@ type Epoch struct {
 	EffectiveUnitsCommited uint64 `json:"effectiveUnitsCommited"`
 	EpochSubsidy           uint64 `json:"epochSubsidy"`
 	TotalWeight            uint64 `json:"totalWeight"`
+	TotalRewards           int64  `json:"totalRewards"`
 	TotalActiveSmeshers    uint64 `json:"totalActiveSmeshers"`
 }
 
@@ -16,6 +17,12 @@ type Atx struct {
 	AtxId             string `json:"atxId"`
 	EffectiveNumUnits uint32 `json:"effectiveNumUnits"`
 	Received          int64  `json:"received"`
+}
+
+type ShortAccount struct {
+	Balance              uint64 `json:"balance"`
+	USDValue             int64  `json:"usdValue"`
+	Address              string `json:"address"`
 }
 
 type Account struct {
@@ -30,6 +37,7 @@ type Account struct {
 }
 
 type Reward struct {
+	Account        string `json:"account"`
 	Rewards        int64  `json:"rewards"`
 	RewardsDisplay string `json:"rewardsDisplay"`
 	Layer          int64  `json:"layer"`

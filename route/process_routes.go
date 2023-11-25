@@ -16,6 +16,11 @@ func AddRoutes(readDB *database.ReadDB, router *gin.Engine, priceResolver *price
 	poetRoutes := NewPoetRoutes(configValues)
 	nodeRoutes := NewNodeRoutes(readDB, networkUtils, state)
 	epochRoutes := NewEpochRoutes(readDB, networkUtils, state)
+	layersRoutes := NewLayersRoutes(readDB, networkUtils, state)
+
+	router.GET("/account", func(c *gin.Context) {
+		accountRoutes.GetAccounts(c)
+	})
 
 	router.GET("/account/:accountAddress", func(c *gin.Context) {
 		accountRoutes.GetAccount(c)
@@ -67,6 +72,18 @@ func AddRoutes(readDB *database.ReadDB, router *gin.Engine, priceResolver *price
 
 	router.GET("/epochs/:epoch", func(c *gin.Context) {
 		epochRoutes.GetEpoch(c)
+	})
+
+	router.GET("/layers", func(c *gin.Context) {
+		layersRoutes.GetLayers(c)
+	})
+
+	router.GET("/layers/:layer/transactions", func(c *gin.Context) {
+		layersRoutes.GetLayerTransactions(c)
+	})
+
+	router.GET("/layers/:layer/rewards", func(c *gin.Context) {
+		layersRoutes.GetLayerRewards(c)
 	})
 
 	router.GET("/poets", func(c *gin.Context) {
