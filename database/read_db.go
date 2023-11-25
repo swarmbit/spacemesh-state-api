@@ -178,25 +178,6 @@ func (m *ReadDB) CountNodeRewards(node string) (int64, error) {
 	return rewardsResult, nil
 }
 
-func (m *ReadDB) CountRewardsLayers(account string, minLayer uint32, maxLayer uint32) (int64, error) {
-	rewardsColl := m.client.Database(database).Collection(rewardsCollection)
-	filter := bson.M{
-		"coinbase": account,
-		"layer": bson.M{
-			"$gte": minLayer,
-			"$lt":  maxLayer,
-		},
-	}
-	rewardsResult, err := rewardsColl.CountDocuments(
-		context.TODO(),
-		filter,
-	)
-	if err != nil {
-		return 0, err
-	}
-	return rewardsResult, nil
-}
-
 func (m *ReadDB) CountNodeRewardsLayers(node string, minLayer uint32, maxLayer uint32) (int64, error) {
 	rewardsColl := m.client.Database(database).Collection(rewardsCollection)
 	filter := bson.M{
@@ -260,17 +241,27 @@ func (m *ReadDB) SumNodeRewardsLayers(node string, minLayer uint32, maxLayer uin
 
 func (m *ReadDB) SumRewardsLayers(account string, minLayer uint32, maxLayer uint32) (int64, error) {
 	rewardsColl := m.client.Database(database).Collection(rewardsCollection)
-
-	match := bson.D{
-		{Key: "$match", Value: bson.D{
-			{Key: "coinbase", Value: account},
-			{Key: "layer", Value: bson.D{
-				{Key: "$gte", Value: minLayer},
-				{Key: "$lt", Value: maxLayer},
+	match := bson.D{}
+	if account != "" {
+		match = bson.D{
+			{Key: "$match", Value: bson.D{
+				{Key: "coinbase", Value: account},
+				{Key: "layer", Value: bson.D{
+					{Key: "$gte", Value: minLayer},
+					{Key: "$lt", Value: maxLayer},
+				}},
 			}},
-		}},
+		}
+	} else {
+		match = bson.D{
+			{Key: "$match", Value: bson.D{
+				{Key: "layer", Value: bson.D{
+					{Key: "$gte", Value: minLayer},
+					{Key: "$lt", Value: maxLayer},
+				}},
+			}},
+		}
 	}
-
 	group := bson.D{
 		{Key: "$group", Value: bson.D{
 			{Key: "_id", Value: nil},

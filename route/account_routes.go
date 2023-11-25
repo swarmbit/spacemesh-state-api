@@ -275,7 +275,7 @@ func (a *AccountRoutes) GetAccountRewardsDetails(c *gin.Context) {
 	firstLayer := uint32(epoch * config.LayersPerEpoch)
 	lastLayer := firstLayer + config.LayersPerEpoch
 
-	countEpochResult, err := a.db.CountRewardsLayers(accountAddress, firstLayer, lastLayer)
+	countEpochResult, err := a.db.CountRewards(accountAddress, int(firstLayer), int(lastLayer))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status": "Internal Error",
@@ -499,7 +499,7 @@ func (a *AccountRoutes) GetAccountRewardsDetailsEpoch(c *gin.Context) {
 	firstLayer := uint32(epoch * config.LayersPerEpoch)
 	lastLayer := firstLayer + config.LayersPerEpoch
 
-	countEpochResult, err := a.db.CountRewardsLayers(accountAddress, firstLayer, lastLayer)
+	countEpochResult, err := a.db.CountRewards(accountAddress, int(firstLayer), int(lastLayer))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status": "Internal Error",
