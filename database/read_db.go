@@ -80,29 +80,80 @@ func (m *ReadDB) CountTransactions(account string) (int64, error) {
 	return accountResult, nil
 }
 
-func (m *ReadDB) CountRewards(account string, firstLayer int, lastLayer int) (int64, error) {
+func (m *ReadDB) CountLayerTransactions(layer int) (int64, error) {
+	transactionsColl := m.client.Database(database).Collection(transactionsCollection)
+
+	filter := bson.D{
+		{Key: "layer", Value: layer},
+	}
+	accountResult, err := transactionsColl.CountDocuments(
+		context.TODO(),
+		filter,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return accountResult, nil
+}
+
+func (m *ReadDB) CountLayerRewards(layer int) (int64, error) {
 	rewardsColl := m.client.Database(database).Collection(rewardsCollection)
 
 	filter := bson.D{
-		{Key: "coinbase", Value: account},
+		{Key: "layer", Value: layer},
 	}
-	if firstLayer > -1 && lastLayer > -1 {
+	rewardsResult, err := rewardsColl.CountDocuments(
+		context.TODO(),
+		filter,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return rewardsResult, nil
+}
+
+func (m *ReadDB) CountRewards(account string, firstLayer int, lastLayer int) (int64, error) {
+	rewardsColl := m.client.Database(database).Collection(rewardsCollection)
+
+	filter := bson.D{}
+	if account != "" {
 		filter = bson.D{
 			{Key: "coinbase", Value: account},
-			{"layer", bson.D{{"$gte", firstLayer}}},
-			{"layer", bson.D{{"$lte", lastLayer}}},
 		}
-	} else if firstLayer > -1 {
-		filter = bson.D{
-			{Key: "coinbase", Value: account},
-			{"layer", bson.D{{"$gte", firstLayer}}},
+		if firstLayer > -1 && lastLayer > -1 {
+			filter = bson.D{
+				{Key: "coinbase", Value: account},
+				{"layer", bson.D{{"$gte", firstLayer}}},
+				{"layer", bson.D{{"$lte", lastLayer}}},
+			}
+		} else if firstLayer > -1 {
+			filter = bson.D{
+				{Key: "coinbase", Value: account},
+				{"layer", bson.D{{"$gte", firstLayer}}},
+			}
+		} else if lastLayer > -1 {
+			filter = bson.D{
+				{Key: "coinbase", Value: account},
+				{"layer", bson.D{{"$lte", lastLayer}}},
+			}
 		}
-	} else if lastLayer > -1 {
-		filter = bson.D{
-			{Key: "coinbase", Value: account},
-			{"layer", bson.D{{"$lte", lastLayer}}},
+	} else {
+		if firstLayer > -1 && lastLayer > -1 {
+			filter = bson.D{
+				{"layer", bson.D{{"$gte", firstLayer}}},
+				{"layer", bson.D{{"$lte", lastLayer}}},
+			}
+		} else if firstLayer > -1 {
+			filter = bson.D{
+				{"layer", bson.D{{"$gte", firstLayer}}},
+			}
+		} else if lastLayer > -1 {
+			filter = bson.D{
+				{"layer", bson.D{{"$lte", lastLayer}}},
+			}
 		}
 	}
+
 	rewardsResult, err := rewardsColl.CountDocuments(
 		context.TODO(),
 		filter,
@@ -296,6 +347,35 @@ func (m *ReadDB) GetRewards(account string, skip int64, limit int64, sort int8, 
 	return rewards, nil
 }
 
+func (m *ReadDB) GetLayerRewards(layer int, skip int64, limit int64, sort int8) ([]*types.RewardsDoc, error) {
+	rewardsColl := m.client.Database(database).Collection(rewardsCollection)
+
+	findOptions := options.Find()
+	findOptions.SetSkip(skip)
+	findOptions.SetLimit(limit)
+	findOptions.SetSort(bson.M{"layer": sort})
+
+	filter := bson.D{
+		{Key: "layer", Value: layer},
+	}
+
+	ctx := context.TODO()
+	cursor, err := rewardsColl.Find(
+		ctx,
+		filter,
+		findOptions,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var rewards []*types.RewardsDoc
+	if err = cursor.All(ctx, &rewards); err != nil {
+		return nil, err
+	}
+	return rewards, nil
+}
 func (m *ReadDB) GetNodeRewards(node string, skip int64, limit int64, sort int8) ([]*types.RewardsDoc, error) {
 	rewardsColl := m.client.Database(database).Collection(rewardsCollection)
 
@@ -416,6 +496,36 @@ func (m *ReadDB) GetTransactions(account string, skip int64, limit int64, sort i
 			{"principal_account": account, "complete": complete},
 			{"receiver_account": account, "complete": complete},
 		},
+	}
+	cursor, err := transactionsColl.Find(
+		ctx,
+		filter,
+		findOptions,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var transactions []*types.TransactionDoc
+	if err = cursor.All(ctx, &transactions); err != nil {
+		return nil, err
+	}
+	return transactions, nil
+}
+
+func (m *ReadDB) GetLayerTransactions(layer string, skip int64, limit int64, sort int8, complete bool) ([]*types.TransactionDoc, error) {
+	transactionsColl := m.client.Database(database).Collection(transactionsCollection)
+
+	findOptions := options.Find()
+	findOptions.SetSkip(skip)
+	findOptions.SetLimit(limit)
+	findOptions.SetSort(bson.M{"layer": sort})
+
+	ctx := context.TODO()
+	filter := bson.D{
+		{Key: "layer", Value: layer},
+		{Key: "complete", Value: complete},
 	}
 	cursor, err := transactionsColl.Find(
 		ctx,
@@ -640,6 +750,34 @@ func (m *ReadDB) GetNetworkInfo() (*types.NetworkInfoDoc, error) {
 	return doc, nil
 }
 
+func (m *ReadDB) GetProcessedsLayers(skip int64, limit int64, sort int8) ([]*types.LayerDoc, error) {
+	layersColl := m.client.Database(database).Collection(layersCollection)
+
+	findOptions := options.Find()
+	findOptions.SetSkip(skip)
+	findOptions.SetLimit(limit)
+	findOptions.SetSort(bson.M{"_id": sort})
+
+	ctx := context.TODO()
+	filter := bson.M{
+		"status": 3,
+	}
+	cursor, err := layersColl.Find(
+		ctx,
+		filter,
+		findOptions,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var layers []*types.LayerDoc
+	if err = cursor.All(ctx, &layers); err != nil {
+		return nil, err
+	}
+	return layers, nil
+}
 func (m *ReadDB) GetLastProcessedLayer() (*types.LayerDoc, error) {
 	layersColl := m.client.Database(database).Collection(layersCollection)
 
