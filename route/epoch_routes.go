@@ -59,7 +59,7 @@ func (e *EpochRoutes) GetEpoch(c *gin.Context) {
 	rewardsTotal, err := e.db.SumRewardsLayers("", firstLayer, lastLayer)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to epoch rewards",
+			"error": "Failed to get epoch rewards",
 		})
 		return
 	}
