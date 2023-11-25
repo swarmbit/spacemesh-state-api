@@ -505,7 +505,7 @@ func (m *ReadDB) GetTransactions(account string, skip int64, limit int64, sort i
 	return transactions, nil
 }
 
-func (m *ReadDB) GetLayerTransactions(layer string, skip int64, limit int64, sort int8, complete bool) ([]*types.TransactionDoc, error) {
+func (m *ReadDB) GetLayerTransactions(layer int, skip int64, limit int64, sort int8, complete bool) ([]*types.TransactionDoc, error) {
 	transactionsColl := m.client.Database(database).Collection(transactionsCollection)
 
 	findOptions := options.Find()

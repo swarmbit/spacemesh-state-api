@@ -74,6 +74,14 @@ func AddRoutes(readDB *database.ReadDB, router *gin.Engine, priceResolver *price
 		layersRoutes.GetLayers(c)
 	})
 
+	router.GET("/layers/:layer/transactions", func(c *gin.Context) {
+		layersRoutes.GetLayerTransactions(c)
+	})
+
+	router.GET("/layers/:layer/rewards", func(c *gin.Context) {
+		layersRoutes.GetLayerRewards(c)
+	})
+
 	router.GET("/poets", func(c *gin.Context) {
 		poetRoutes.GetPoets(c)
 	})

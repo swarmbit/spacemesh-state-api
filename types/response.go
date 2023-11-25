@@ -8,7 +8,7 @@ type Epoch struct {
 	EffectiveUnitsCommited uint64 `json:"effectiveUnitsCommited"`
 	EpochSubsidy           uint64 `json:"epochSubsidy"`
 	TotalWeight            uint64 `json:"totalWeight"`
-	TotalRewards           int64 `json:"totalRewards"`
+	TotalRewards           int64  `json:"totalRewards"`
 	TotalActiveSmeshers    uint64 `json:"totalActiveSmeshers"`
 }
 
@@ -31,6 +31,7 @@ type Account struct {
 }
 
 type Reward struct {
+	Account        string `json:"account"`
 	Rewards        int64  `json:"rewards"`
 	RewardsDisplay string `json:"rewardsDisplay"`
 	Layer          int64  `json:"layer"`
