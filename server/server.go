@@ -44,6 +44,7 @@ func StartServer(configValues *config.Config) {
 	config.AllowOrigins = []string{"*"}
 	config.AllowMethods = []string{"GET"}
 	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type"}
+	config.ExposeHeaders = []string{"*"}
 
 	router.Use(cors.New(config))
 	route.AddRoutes(readDB, router, priceResolver, configValues)
