@@ -543,7 +543,7 @@ func (a *AccountRoutes) GetAccountRewardsDetails(c *gin.Context) {
 }
 
 func (a *AccountRoutes) FilterEpochActiveNodes(c *gin.Context) {
-	/*
+
 	accountAddress := c.Param("accountAddress")
 
 	epochStr := c.Param("epoch")
@@ -553,7 +553,7 @@ func (a *AccountRoutes) FilterEpochActiveNodes(c *gin.Context) {
 			"error": "epoch must be a valid integer",
 		})
 		return
-	}*/
+	}
 
 	var req types.NodeFilterRequest
 
@@ -564,18 +564,23 @@ func (a *AccountRoutes) FilterEpochActiveNodes(c *gin.Context) {
 
 	nodes := req.Nodes
 
-	/*
-	activeNodes, err := a.db.FilterAccountAtxNodesForEpoch(accountAddress, uint64(epoch-1), nodes)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to filter nodes",
+	if epoch == 8 {
+		c.JSON(200, &types.ActiveNodesEpoch{
+			Nodes: nodes,
 		})
-		return
-	}*/
+	} else {
+		activeNodes, err := a.db.FilterAccountAtxNodesForEpoch(accountAddress, uint64(epoch-1), nodes)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "failed to filter nodes",
+			})
+			return
+		}
 
-	c.JSON(200, &types.ActiveNodesEpoch{
-		Nodes: nodes,
-	})
+		c.JSON(200, &types.ActiveNodesEpoch{
+			Nodes: activeNodes,
+		})
+	}
 
 }
 
