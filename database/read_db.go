@@ -877,6 +877,55 @@ func (m *ReadDB) CountAccountAtxEpoch(account string, epoch uint64) (int64, erro
 
 }
 
+func (m *ReadDB) CountAtxForEpoch(epoch uint64) (int64, error) {
+	atxColl := m.client.Database(database).Collection(atxsCollection)
+
+	ctx := context.TODO()
+	filter := bson.M{
+		"publishepoch": epoch,
+		}
+
+		count, err := atxColl.CountDocuments(
+			ctx,
+			filter,
+			)
+		if err != nil {
+			return 0, err
+		}
+		return count, nil
+
+}
+
+func (m *ReadDB) GetAtxForEpochPaginated(epoch uint64, skip int64, limit int64, sort int8) ([]*types.AtxDoc, error) {
+	atxColl := m.client.Database(database).Collection(atxsCollection)
+
+	findOptions := options.Find()
+	findOptions.SetSkip(skip)
+	findOptions.SetLimit(limit)
+	findOptions.SetSort(bson.M{"effective_num_units": sort})
+
+	ctx := context.TODO()
+	filter := bson.M{
+		"publishepoch": epoch,
+		}
+
+		cursor, err := atxColl.Find(
+			ctx,
+			filter,
+			findOptions,
+			)
+		if err != nil {
+			return nil, err
+		}
+		defer cursor.Close(ctx)
+
+		var atx []*types.AtxDoc
+		if err = cursor.All(ctx, &atx); err != nil {
+			return nil, err
+		}
+		return atx, nil
+}
+
 func (m *ReadDB) GetAccountAtxEpoch(account string, epoch uint64, skip int64, limit int64, sort int8) ([]*types.AtxDoc, error) {
 	atxColl := m.client.Database(database).Collection(atxsCollection)
 

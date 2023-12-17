@@ -87,6 +87,10 @@ func AddRoutes(readDB *database.ReadDB, router *gin.Engine, priceResolver *price
 		epochRoutes.GetEpoch(c)
 	})
 
+	router.GET("/epochs/:epoch/axt", func(c *gin.Context) {
+		epochRoutes.GetEpochAtx(c)
+	})
+
 	router.GET("/layers", func(c *gin.Context) {
 		layersRoutes.GetLayers(c)
 	})
