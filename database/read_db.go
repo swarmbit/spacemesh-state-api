@@ -592,6 +592,33 @@ func (m *ReadDB) GetAtxWeightAccount(account string, epoch uint64) (*types.Aggre
 	return &types.AggregationAtxTotals{}, nil
 }
 
+func (m *ReadDB) GetAccountAtxList(account string, epoch uint64) ([]*types.AtxDoc, error) {
+	atxColl := m.client.Database(database).Collection(atxsCollection)
+
+	findOptions := options.Find()
+
+	ctx := context.TODO()
+	filter := bson.M{
+		"coinbase": account,
+		"publishepoch": epoch,
+	}
+	cursor, err := atxColl.Find(
+		ctx,
+		filter,
+		findOptions,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var atx []*types.AtxDoc
+	if err = cursor.All(ctx, &atx); err != nil {
+		return nil, err
+	}
+	return atx, nil
+}
+
 func (m *ReadDB) GetAtxWeightNode(node string, epoch uint64) (*types.AggregationAtxTotals, error) {
 	atxColl := m.client.Database(database).Collection(atxsCollection)
 
@@ -755,13 +782,12 @@ func (m *ReadDB) CountNodes() (int64, error) {
 	count, err := nodesColl.CountDocuments(
 		ctx,
 		filter,
-		)
+	)
 	if err != nil {
 		return 0, err
 	}
 	return count, nil
 }
-
 
 func (m *ReadDB) CountAccounts() (int64, error) {
 	accountsColl := m.client.Database(database).Collection(accountsCollection)

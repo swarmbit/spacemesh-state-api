@@ -724,7 +724,7 @@ func (a *AccountRoutes) GetAccountRewardsDetailsEpoch(c *gin.Context) {
 		return
 	}
 
-	accountAtx, err := a.db.GetAtxWeightAccount(accountAddress, uint64(epoch-1))
+	accountAtxs, err := a.db.GetAccountAtxList(accountAddress, uint64(epoch-1))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status": "Internal Error",
@@ -733,25 +733,25 @@ func (a *AccountRoutes) GetAccountRewardsDetailsEpoch(c *gin.Context) {
 		return
 	}
 
-	if accountAtx.TotalWeight == 0 {
-		c.JSON(http.StatusNotFound, gin.H{
-			"status": "Not found",
-			"error":  "Account not active for epoch",
-		})
-		return
-	}
-
-	eligibilityCount, err := a.networkUtils.GetNumberOfSlots(uint64(accountAtx.TotalWeight), epochAtx.TotalWeight, uint32(epoch))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status": "Internal Error",
-			"error":  "Failed to get eligibility",
-		})
-		return
+	eligibilityCount := int32(0)
+	totalWeight := uint64(0)
+	totalEffectiveNumUnits := uint32(0)
+	for _, atx := range accountAtxs {
+		eligibilityCountTemp, err := a.networkUtils.GetNumberOfSlots(uint64(atx.Weight), epochAtx.TotalWeight, uint32(epoch))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status": "Internal Error",
+				"error":  "Failed to get eligibility",
+			})
+			return
+		}
+		eligibilityCount += eligibilityCountTemp
+		totalWeight += atx.Weight
+		totalEffectiveNumUnits += atx.EffectiveNumUnits
 	}
 
 	unitReward := a.state.GetEpochSubsidy(uint32(epoch)) / epochAtx.TotalWeight
-	predictedRewards := unitReward * uint64(accountAtx.TotalWeight)
+	predictedRewards := unitReward * uint64(totalWeight)
 
 	c.JSON(200, &types.RewardDetailsEpoch{
 		Epoch:        int64(epoch),
@@ -759,7 +759,7 @@ func (a *AccountRoutes) GetAccountRewardsDetailsEpoch(c *gin.Context) {
 		RewardsCount: countEpochResult,
 		Eligibility: &types.Eligibility{
 			Count:             eligibilityCount,
-			EffectiveNumUnits: accountAtx.TotalEffectiveNumUnits,
+			EffectiveNumUnits: int64(totalEffectiveNumUnits),
 			PredictedRewards:  uint64(predictedRewards),
 		},
 	})
