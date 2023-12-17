@@ -26,6 +26,51 @@ func NewNodeRoutes(db *database.ReadDB, networkUtils *network.NetworkUtils, stat
 	}
 }
 
+func (n *NodesRoutes) GetNodes(c *gin.Context) {
+	offsetStr := c.DefaultQuery("offset", "0")
+	limitStr := c.DefaultQuery("limit", "20")
+
+	offset, err := strconv.Atoi(offsetStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "offset must be a valid integer",
+		})
+		return
+	}
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "limit must be a valid integer",
+		})
+		return
+	}
+
+	if offset < 0 || limit < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "offset and limit must be greater or equal to 0",
+		})
+		return
+	}
+
+	nodes, errRewards := n.db.GetNodes(int64(offset), int64(limit))
+	count, errCount := n.db.CountNodes()
+
+	if errRewards != nil || errCount != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status": "Internal Error",
+			"error":  "Failed to fetch transactions for layer",
+		})
+	} else if nodes != nil {
+
+		c.Header("total", strconv.FormatInt(count, 10))
+		c.JSON(200, nodes)
+	} else {
+		c.Header("total", strconv.FormatInt(count, 10))
+		c.JSON(200, make([]*types.NodeDoc, 0))
+	}
+
+}
+
 func (n *NodesRoutes) GetNode(c *gin.Context) {
 	nodeId := c.Param("nodeId")
 	node, err := n.db.GetNode(nodeId)

@@ -89,6 +89,23 @@ func (m *ReadDB) GetNode(nodeId string) (*types.NodeDoc, error) {
 	return nodeDoc, nil
 }
 
+func (m *ReadDB) GetTransaction(transactionId string) (*types.TransactionDoc, error) {
+	txColl := m.client.Database(database).Collection(transactionsCollection)
+	txResult := txColl.FindOne(
+		context.TODO(),
+		bson.D{{Key: "_id", Value: transactionId}},
+	)
+	txDoc := &types.TransactionDoc{}
+	err := txResult.Decode(txDoc)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &types.TransactionDoc{}, nil
+		}
+		return &types.TransactionDoc{}, err
+	}
+	return txDoc, nil
+}
+
 func (m *ReadDB) CountTransactions(account string) (int64, error) {
 	transactionsColl := m.client.Database(database).Collection(transactionsCollection)
 
@@ -98,6 +115,20 @@ func (m *ReadDB) CountTransactions(account string) (int64, error) {
 			{"receiver_account": account},
 		},
 	}
+	accountResult, err := transactionsColl.CountDocuments(
+		context.TODO(),
+		filter,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return accountResult, nil
+}
+
+func (m *ReadDB) CountAllTransactions() (int64, error) {
+	transactionsColl := m.client.Database(database).Collection(transactionsCollection)
+
+	filter := bson.D{}
 	accountResult, err := transactionsColl.CountDocuments(
 		context.TODO(),
 		filter,
@@ -561,6 +592,33 @@ func (m *ReadDB) GetAtxWeightAccount(account string, epoch uint64) (*types.Aggre
 	return &types.AggregationAtxTotals{}, nil
 }
 
+func (m *ReadDB) GetAccountAtxList(account string, epoch uint64) ([]*types.AtxDoc, error) {
+	atxColl := m.client.Database(database).Collection(atxsCollection)
+
+	findOptions := options.Find()
+
+	ctx := context.TODO()
+	filter := bson.M{
+		"coinbase": account,
+		"publishepoch": epoch,
+	}
+	cursor, err := atxColl.Find(
+		ctx,
+		filter,
+		findOptions,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var atx []*types.AtxDoc
+	if err = cursor.All(ctx, &atx); err != nil {
+		return nil, err
+	}
+	return atx, nil
+}
+
 func (m *ReadDB) GetAtxWeightNode(node string, epoch uint64) (*types.AggregationAtxTotals, error) {
 	atxColl := m.client.Database(database).Collection(atxsCollection)
 
@@ -662,6 +720,75 @@ func (m *ReadDB) GetLayerTransactions(layer int, skip int64, limit int64, sort i
 	return transactions, nil
 }
 
+func (m *ReadDB) GetNodes(skip int64, limit int64) ([]*types.NodeDoc, error) {
+	nodesColl := m.client.Database(database).Collection(nodesCollection)
+
+	findOptions := options.Find()
+	findOptions.SetSkip(skip)
+	findOptions.SetLimit(limit)
+
+	ctx := context.TODO()
+	filter := bson.D{}
+	cursor, err := nodesColl.Find(
+		ctx,
+		filter,
+		findOptions,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var nodes []*types.NodeDoc
+	if err = cursor.All(ctx, &nodes); err != nil {
+		return nil, err
+	}
+	return nodes, nil
+}
+func (m *ReadDB) GetAllTransactions(skip int64, limit int64, sort int8, complete bool) ([]*types.TransactionDoc, error) {
+	transactionsColl := m.client.Database(database).Collection(transactionsCollection)
+
+	findOptions := options.Find()
+	findOptions.SetSkip(skip)
+	findOptions.SetLimit(limit)
+	findOptions.SetSort(bson.M{"layer": sort})
+
+	ctx := context.TODO()
+	filter := bson.D{
+		{Key: "complete", Value: complete},
+	}
+	cursor, err := transactionsColl.Find(
+		ctx,
+		filter,
+		findOptions,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var transactions []*types.TransactionDoc
+	if err = cursor.All(ctx, &transactions); err != nil {
+		return nil, err
+	}
+	return transactions, nil
+}
+
+func (m *ReadDB) CountNodes() (int64, error) {
+	nodesColl := m.client.Database(database).Collection(nodesCollection)
+
+	ctx := context.TODO()
+	filter := bson.M{}
+	count, err := nodesColl.CountDocuments(
+		ctx,
+		filter,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 func (m *ReadDB) CountAccounts() (int64, error) {
 	accountsColl := m.client.Database(database).Collection(accountsCollection)
 
@@ -748,6 +875,55 @@ func (m *ReadDB) CountAccountAtxEpoch(account string, epoch uint64) (int64, erro
 	}
 	return count, nil
 
+}
+
+func (m *ReadDB) CountAtxForEpoch(epoch uint64) (int64, error) {
+	atxColl := m.client.Database(database).Collection(atxsCollection)
+
+	ctx := context.TODO()
+	filter := bson.M{
+		"publishepoch": epoch,
+		}
+
+		count, err := atxColl.CountDocuments(
+			ctx,
+			filter,
+			)
+		if err != nil {
+			return 0, err
+		}
+		return count, nil
+
+}
+
+func (m *ReadDB) GetAtxForEpochPaginated(epoch uint64, skip int64, limit int64, sort int8) ([]*types.AtxDoc, error) {
+	atxColl := m.client.Database(database).Collection(atxsCollection)
+
+	findOptions := options.Find()
+	findOptions.SetSkip(skip)
+	findOptions.SetLimit(limit)
+	findOptions.SetSort(bson.M{"effective_num_units": sort})
+
+	ctx := context.TODO()
+	filter := bson.M{
+		"publishepoch": epoch,
+		}
+
+		cursor, err := atxColl.Find(
+			ctx,
+			filter,
+			findOptions,
+			)
+		if err != nil {
+			return nil, err
+		}
+		defer cursor.Close(ctx)
+
+		var atx []*types.AtxDoc
+		if err = cursor.All(ctx, &atx); err != nil {
+			return nil, err
+		}
+		return atx, nil
 }
 
 func (m *ReadDB) GetAccountAtxEpoch(account string, epoch uint64, skip int64, limit int64, sort int8) ([]*types.AtxDoc, error) {

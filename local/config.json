@@ -16,7 +16,7 @@
         {
             "name": "Spacemesh",
             "info": {
-                "description": "Official spacemesh poet",
+                "description": "Official poet",
                 "discord-link": "https://chat.spacemesh.io/"
             },
             "settings": {
@@ -27,7 +27,7 @@
         {
             "name": "Team24",
             "info": {
-                "description": "Spacemesh community poet with 24h cycle gap",
+                "description": "Community poet with 24h cycle gap",
                 "discord-link": "https://discord.gg/B62dnMet5"
             },
             "settings": {

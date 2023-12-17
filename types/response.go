@@ -16,6 +16,7 @@ type Atx struct {
 	NodeId            string `json:"nodeId"`
 	AtxId             string `json:"atxId"`
 	EffectiveNumUnits uint32 `json:"effectiveNumUnits"`
+	Weight            uint64 `json:"weight"`
 	Received          int64  `json:"received"`
 }
 
