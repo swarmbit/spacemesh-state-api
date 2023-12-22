@@ -462,84 +462,8 @@ func (a *AccountRoutes) GetAccountRewardsDetails(c *gin.Context) {
 	networkInfo := a.state.GetInfo()
 	epoch := networkInfo.Epoch
 
-	account, err := a.db.GetAccount(accountAddress)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status": "Internal Error",
-			"error":  "Failed to get rewards sum",
-		})
-		return
-	}
+	a.getAccountRewardDetailsForEpoch(c, accountAddress, int(epoch))
 
-	firstLayer := uint32(epoch * config.LayersPerEpoch)
-	lastLayer := firstLayer + config.LayersPerEpoch
-
-	countEpochResult, err := a.db.CountRewards(accountAddress, int(firstLayer), int(lastLayer))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status": "Internal Error",
-			"error":  "Failed to get epoch rewards count",
-		})
-		return
-	}
-
-	sumEpochResult, err := a.db.SumRewardsLayers(accountAddress, firstLayer, lastLayer)
-	if err != nil {
-		fmt.Println(err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status": "Internal Error",
-			"error":  "Failed to get epoch rewards sum",
-		})
-		return
-	}
-
-	accountAtx, err := a.db.GetAtxWeightAccount(accountAddress, uint64(epoch-1))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status": "Internal Error",
-			"error":  "Failed to get account weight",
-		})
-		return
-	}
-
-	if accountAtx.TotalWeight == 0 {
-		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{
-				"status": "Not found",
-				"error":  "Account not active for epoch",
-			})
-			return
-		}
-	}
-
-	eligibilityCount, err := a.networkUtils.GetNumberOfSlots(uint64(accountAtx.TotalWeight), networkInfo.TotalWeight, epoch)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status": "Internal Error",
-			"error":  "Failed to get eligibility",
-		})
-		return
-	}
-
-	unitReward := networkInfo.EpochSubsidy / networkInfo.TotalWeight
-	predictedRewards := unitReward * uint64(accountAtx.TotalWeight)
-
-	if accountAtx.TotalWeight == 0 {
-		eligibilityCount = -1
-		predictedRewards = 0
-	}
-
-	c.JSON(200, &types.RewardDetails{
-		TotalSum:                 int64(account.TotalRewards),
-		CurrentEpoch:             int64(epoch),
-		CurrentEpochRewardsSum:   sumEpochResult,
-		CurrentEpochRewardsCount: countEpochResult,
-		Eligibility: &types.Eligibility{
-			Count:             eligibilityCount,
-			EffectiveNumUnits: accountAtx.TotalEffectiveNumUnits,
-			PredictedRewards:  uint64(predictedRewards),
-		},
-	})
 }
 
 func (a *AccountRoutes) FilterEpochActiveNodes(c *gin.Context) {
@@ -685,6 +609,10 @@ func (a *AccountRoutes) GetAccountRewardsDetailsEpoch(c *gin.Context) {
 		return
 	}
 
+	a.getAccountRewardDetailsForEpoch(c, accountAddress, epoch)
+}
+
+func (a *AccountRoutes) getAccountRewardDetailsForEpoch(c *gin.Context, accountAddress string, epoch int) {
 	epochAtx, err := a.db.GetAtxEpoch(uint64(epoch - 1))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -748,6 +676,14 @@ func (a *AccountRoutes) GetAccountRewardsDetailsEpoch(c *gin.Context) {
 		eligibilityCount += eligibilityCountTemp
 		totalWeight += atx.Weight
 		totalEffectiveNumUnits += atx.EffectiveNumUnits
+	}
+
+	if totalWeight == 0 {
+		c.JSON(http.StatusNotFound, gin.H{
+			"status": "Not found",
+			"error":  "Account not active for epoch",
+		})
+		return
 	}
 
 	unitReward := a.state.GetEpochSubsidy(uint32(epoch)) / epochAtx.TotalWeight
