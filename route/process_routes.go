@@ -6,11 +6,14 @@ import (
 	"github.com/swarmbit/spacemesh-state-api/database"
 	"github.com/swarmbit/spacemesh-state-api/network"
 	"github.com/swarmbit/spacemesh-state-api/price"
+	"log"
 )
 
 func AddRoutes(readDB *database.ReadDB, router *gin.Engine, priceResolver *price.PriceResolver, configValues *config.Config) {
 	networkUtils := network.NewNetworkUtils()
+	log.Println("Created network utils")
 	state := network.NewNetworkState(readDB, networkUtils, priceResolver)
+	log.Println("Created state")
 	accountRoutes := NewAccountRoutes(readDB, networkUtils, state, priceResolver)
 	networkRoutes := NewNetworkRoutes(state)
 	poetRoutes := NewPoetRoutes(configValues)
@@ -114,4 +117,7 @@ func AddRoutes(readDB *database.ReadDB, router *gin.Engine, priceResolver *price
 	router.GET("/poets", func(c *gin.Context) {
 		poetRoutes.GetPoets(c)
 	})
+
+	log.Println("Added routes")
+
 }

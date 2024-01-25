@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/swarmbit/spacemesh-state-api/types"
@@ -18,8 +19,8 @@ type ReadDB struct {
 func NewReadDB(dbConnection string) (*ReadDB, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(dbConnection))
-	createIndexes(client)
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(dbConnection).SetMaxPoolSize(10))
+	log.Println("Created read db")
 	return &ReadDB{
 		client: client,
 	}, err

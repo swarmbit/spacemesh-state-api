@@ -34,8 +34,9 @@ const transactionsCollection = "transactions"
 func NewWriteDB(dbConnection string) (*WriteDB, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(dbConnection))
-	createIndexes(client)
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(dbConnection).SetMaxPoolSize(10))
+	err = createIndexes(client)
+	log.Println("Created write db")
 	return &WriteDB{
 		client: client,
 	}, err

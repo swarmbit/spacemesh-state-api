@@ -26,27 +26,29 @@ func StartServer(configValues *config.Config) {
 	if err != nil {
 		panic("Failed to open document read db")
 	}
+	log.Println("Created dbs")
 
 	priceResolver := price.NewPriceResolver(configValues)
+	log.Println("Created price resolver")
 
-	sink := sink.NewSink(configValues, writeDB)
-	sink.StartRewardsSink()
-	sink.StartLayersSink()
-	sink.StartAtxSink()
-	sink.StartTransactionCreatedSink()
-	sink.StartTransactionResultSink()
-	sink.StartMalfeasanceSink()
+	s := sink.NewSink(configValues, writeDB)
+	s.StartRewardsSink()
+	s.StartLayersSink()
+	s.StartAtxSink()
+	s.StartTransactionCreatedSink()
+	s.StartTransactionResultSink()
+	s.StartMalfeasanceSink()
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 
-	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"*"}
-	config.AllowMethods = []string{"GET"}
-	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type"}
-	config.ExposeHeaders = []string{"*"}
+	c := cors.DefaultConfig()
+	c.AllowOrigins = []string{"*"}
+	c.AllowMethods = []string{"*"}
+	c.AllowHeaders = []string{"*"}
+	c.ExposeHeaders = []string{"*"}
 
-	router.Use(cors.New(config))
+	router.Use(cors.New(c))
 	route.AddRoutes(readDB, router, priceResolver, configValues)
 
 	server := &http.Server{
@@ -67,6 +69,7 @@ func StartServer(configValues *config.Config) {
 		}
 	}()
 
+	log.Println("Listen and serve")
 	if err := server.ListenAndServe(); err != nil {
 		if err == http.ErrServerClosed {
 			log.Println("Server closed under request")

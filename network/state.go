@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -73,11 +74,14 @@ func (n *NetworkState) periodicCalculateSubsidy() {
 
 func (n *NetworkState) fetchNetworkInfo() {
 
+	log.Println("Start fetch network info")
+
 	layer, err := n.db.GetLastProcessedLayer()
 	if err != nil {
 		fmt.Printf("Failed to get last processed layer: %s", err.Error())
 		return
 	}
+	log.Println("Got last processed layer")
 
 	epoch := n.networkUtils.GetEpoch(uint64(layer.Layer))
 
@@ -86,57 +90,71 @@ func (n *NetworkState) fetchNetworkInfo() {
 		fmt.Printf("Failed to count atx epoch: %s", err.Error())
 		return
 	}
+	log.Println("Got atx for epoch count")
 
 	atxNextEpoch, err := n.db.CountAtxEpoch(uint64(epoch))
 	if err != nil {
 		fmt.Printf("Failed to count next atx epoch: %s", err.Error())
 		return
 	}
+	log.Println("Got atx for next epoch count")
 
 	totalAccounts, err := n.db.CountAccounts()
 	if err != nil {
 		fmt.Printf("Failed to count accounts: %s", err.Error())
 		return
 	}
+	log.Println("Got count accounts")
 
 	networkInfo, err := n.db.GetNetworkInfo()
 	if err != nil {
 		fmt.Printf("Failed to get network info: %s", err.Error())
 		return
 	}
+	log.Println("Got network info")
 
 	atxEpochTotals, err := n.db.GetAtxEpoch(uint64(epoch - 1))
 	if err != nil {
 		fmt.Printf("Failed to get epoch totals: %s", err.Error())
 		return
 	}
+	log.Println("Got atx totals")
 
 	atxNextEpochTotals, err := n.db.GetAtxEpoch(uint64(epoch))
 	if err != nil {
 		fmt.Printf("Failed to get next epoch totals: %s", err.Error())
 		return
 	}
+	log.Println("Got atx next epoch totals")
 
+	/*
+	// not performant enough in the current form
 	hexAtx, err := n.getHigestAtx(uint64(epoch - 1))
 	if err != nil {
 		fmt.Printf("Failed to get highest atx: %s", err.Error())
 		return
 	}
+	log.Println("Got highest atx")
+
 
 	base64Atx, err := hexToBase64(hexAtx)
 	if err != nil {
 		fmt.Printf("Failed to get base64 atx: %s", err.Error())
 		return
-	}
+	}*/
 
 	totalSlots, err := n.networkUtils.GetNumberOfSlots(uint64(atxEpochTotals.TotalWeight), atxEpochTotals.TotalWeight, epoch.Uint32())
 	if err != nil {
 		fmt.Printf("Failed to get total slots: %s", err.Error())
 		return
 	}
+	log.Println("Got total slots")
+
 
 	var genisesAccounts int64 = 28
-	var price = n.priceResolver.GetPrice()
+	var p = n.priceResolver.GetPrice()
+	log.Println("Got price")
+
 	n.networkInfo.Store(INFO_KEY, &types.NetworkInfo{
 		Epoch:                  epoch.Uint32(),
 		EpochSubsidy:           n.networkUtils.GetEpochSubsidy(uint64(epoch)),
@@ -145,11 +163,11 @@ func (n *NetworkState) fetchNetworkInfo() {
 		TotalWeight:            atxEpochTotals.TotalWeight,
 		EffectiveUnitsCommited: atxEpochTotals.TotalEffectiveNumUnits,
 		CirculatingSupply:      networkInfo.CirculatingSupply,
-		Price:                  price,
-		MarketCap:              uint64(float64(networkInfo.CirculatingSupply) * price),
+		Price:                  p,
+		MarketCap:              uint64(float64(networkInfo.CirculatingSupply) * p),
 		TotalAccounts:          uint64(totalAccounts + genisesAccounts),
-		AtxHex:                 hexAtx,
-		AtxBase64:              base64Atx,
+		AtxHex:                 "",
+		AtxBase64:              "",
 		TotalActiveSmeshers:    uint64(atxEpoch),
 		NextEpoch: &types.NetworkInfoNextEpoch{
 			Epoch:                  epoch.Uint32() + 1,
