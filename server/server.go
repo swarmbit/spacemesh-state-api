@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/swarmbit/spacemesh-state-api/config"
 	"github.com/swarmbit/spacemesh-state-api/database"
@@ -38,17 +37,21 @@ func StartServer(configValues *config.Config) {
 	s.StartTransactionCreatedSink()
 	s.StartTransactionResultSink()
 	s.StartMalfeasanceSink()
-
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 
-	c := cors.DefaultConfig()
-	c.AllowOrigins = []string{"*"}
-	c.AllowMethods = []string{"*"}
-	c.AllowHeaders = []string{"*"}
-	c.ExposeHeaders = []string{"*"}
+	router.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
 
-	router.Use(cors.New(c))
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+		c.Next()
+	})
 	route.AddRoutes(readDB, router, priceResolver, configValues)
 
 	server := &http.Server{
