@@ -3,7 +3,6 @@ module github.com/swarmbit/spacemesh-state-api
 go 1.21.1
 
 require (
-	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/nats-io/nats.go v1.30.2
 	github.com/spacemeshos/economics v0.1.1
