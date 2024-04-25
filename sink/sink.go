@@ -3,7 +3,7 @@ package sink
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"sync"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -115,36 +115,43 @@ func NewSink(configValues *config.Config, writeDB *database.WriteDB) *Sink {
 
 func (s *Sink) StartRewardsSink() {
 	fmt.Println("Start rewards sink")
-
 	go func() {
 		for {
-			msgs, err := s.rewardsSub.Fetch(10, nats.MaxWait(2*time.Hour))
+			msgs, err := s.rewardsSub.Fetch(100, nats.MaxWait(2*time.Hour))
 			if err == nats.ErrTimeout {
 				fmt.Println("Error ", err.Error())
 				continue
 			}
+			var wg sync.WaitGroup
 			for _, msg := range msgs {
-				fmt.Println("New reward")
-				var reward *natsS.Reward
-				errJson := json.Unmarshal(msg.Data, &reward)
-				fmt.Println("Next reward: ", reward.Layer)
-				if errJson != nil {
-					log.Fatal("Error parsing json reward: ", err)
-					continue
-				}
-				saveErr := s.WriteDB.SaveReward(reward)
-
-				if saveErr != nil {
-					fmt.Println("Failed to save reward")
-					msg.Nak()
-
-				} else {
-					fmt.Println("Reward saved")
-					msg.AckSync()
-				}
+				wg.Add(1)
+				go s.processRewardMessage(msg, &wg)
 			}
+			wg.Wait()
 		}
 	}()
+}
+
+func (s *Sink) processRewardMessage(msg *nats.Msg, wg *sync.WaitGroup) {
+	defer wg.Done()
+	fmt.Println("New reward")
+	var reward *natsS.Reward
+	errJson := json.Unmarshal(msg.Data, &reward)
+	fmt.Println("Next reward: ", reward.Layer)
+	if errJson != nil {
+		fmt.Println("Error parsing json reward: ", errJson)
+		msg.Nak()
+		return
+	}
+	saveErr := s.WriteDB.SaveReward(reward)
+
+	if saveErr != nil {
+		fmt.Println("Failed to save reward")
+		msg.Nak()
+	} else {
+		fmt.Println("Reward saved")
+		msg.AckSync()
+	}
 }
 
 func (s *Sink) StartLayersSink() {
@@ -152,24 +159,20 @@ func (s *Sink) StartLayersSink() {
 
 	go func() {
 		for {
-			msgs, err := s.layersSub.Fetch(10, nats.MaxWait(2*time.Hour))
+			msgs, err := s.layersSub.Fetch(100, nats.MaxWait(2*time.Hour))
+			fmt.Println("New layers")
 			if err == nats.ErrTimeout {
 				fmt.Println("Error ", err.Error())
 				continue
 			}
 			for _, msg := range msgs {
-
-				fmt.Println("New layers")
-				if err == nats.ErrTimeout {
-					fmt.Println("Error ", err.Error())
-					break
-				}
 				fmt.Println("Layer: ", string(msg.Data))
 				var layer *natsS.LayerUpdate
 				errJson := json.Unmarshal(msg.Data, &layer)
 				fmt.Println("Next layer: ", layer.LayerID)
 				if errJson != nil {
-					log.Fatal("Error parsing json layer: ", err)
+					fmt.Println("Error parsing json layer: ", errJson)
+					msg.Nak()
 					continue
 				}
 				saveErr := s.WriteDB.SaveLayer(layer)
@@ -187,37 +190,42 @@ func (s *Sink) StartLayersSink() {
 
 func (s *Sink) StartAtxSink() {
 	fmt.Println("Start atx sink")
-
 	go func() {
 		for {
-
-			msgs, err := s.atxSub.Fetch(10, nats.MaxWait(360*time.Hour))
+			msgs, err := s.atxSub.Fetch(100, nats.MaxWait(360*time.Hour))
 			if err == nats.ErrTimeout {
 				fmt.Println("Error ", err.Error())
 				continue
 			}
+
+			var wg sync.WaitGroup
 			for _, msg := range msgs {
-
-				fmt.Println("Atx: ", string(msg.Data))
-				var atx *natsS.Atx
-				errJson := json.Unmarshal(msg.Data, &atx)
-				fmt.Println("Next atx: ", atx.NodeID)
-				if errJson != nil {
-					log.Fatal("Error parsing json atx: ", err)
-					continue
-				}
-				saveErr := s.WriteDB.SaveAtx(atx)
-				if saveErr != nil {
-					fmt.Println("Failed to save atx")
-					msg.Nak()
-				} else {
-					fmt.Println("Atx saved")
-					msg.AckSync()
-				}
+				go s.processAtxMessage(msg, &wg)
 			}
-
+			wg.Wait()
 		}
 	}()
+}
+
+func (s *Sink) processAtxMessage(msg *nats.Msg, wg *sync.WaitGroup) {
+	defer wg.Done()
+	fmt.Println("Atx: ", string(msg.Data))
+	var atx *natsS.Atx
+	errJson := json.Unmarshal(msg.Data, &atx)
+	fmt.Println("Next atx: ", atx.NodeID)
+	if errJson != nil {
+		fmt.Println("Error parsing json atx: ", errJson)
+		msg.Nak()
+		return
+	}
+	saveErr := s.WriteDB.SaveAtx(atx)
+	if saveErr != nil {
+		fmt.Println("Failed to save atx")
+		msg.Nak()
+	} else {
+		fmt.Println("Atx saved")
+		msg.AckSync()
+	}
 }
 
 func (s *Sink) StartTransactionResultSink() {
@@ -226,7 +234,7 @@ func (s *Sink) StartTransactionResultSink() {
 	go func() {
 		for {
 
-			msgs, err := s.transactionsResultSub.Fetch(10, nats.MaxWait(2*time.Hour))
+			msgs, err := s.transactionsResultSub.Fetch(100, nats.MaxWait(2*time.Hour))
 			if err == nats.ErrTimeout {
 				fmt.Println("Error ", err.Error())
 				continue
@@ -238,7 +246,8 @@ func (s *Sink) StartTransactionResultSink() {
 				errJson := json.Unmarshal(msg.Data, &transaction)
 				fmt.Println("Next transaction: ", transaction)
 				if errJson != nil {
-					log.Fatal("Error parsing json transaction: ", err)
+					fmt.Println("Error parsing json transaction: ", errJson)
+					msg.Nak()
 					continue
 				}
 				saveErr := s.WriteDB.SaveTransactions(transaction, true)
@@ -261,7 +270,7 @@ func (s *Sink) StartTransactionCreatedSink() {
 	go func() {
 		for {
 
-			msgs, err := s.transactionsCreatedSub.Fetch(10, nats.MaxWait(2*time.Hour))
+			msgs, err := s.transactionsCreatedSub.Fetch(100, nats.MaxWait(2*time.Hour))
 			if err == nats.ErrTimeout {
 				fmt.Println("Error ", err.Error())
 				continue
@@ -273,7 +282,8 @@ func (s *Sink) StartTransactionCreatedSink() {
 				errJson := json.Unmarshal(msg.Data, &transaction)
 				fmt.Println("Next transaction: ", transaction)
 				if errJson != nil {
-					log.Fatal("Error parsing json transaction: ", err)
+					fmt.Println("Error parsing json transaction: ", errJson)
+					msg.Nak()
 					continue
 				}
 				saveErr := s.WriteDB.SaveTransactions(transaction, false)
@@ -296,7 +306,7 @@ func (s *Sink) StartMalfeasanceSink() {
 	go func() {
 		for {
 
-			msgs, err := s.malfeasanceSub.Fetch(10, nats.MaxWait(8736*time.Hour))
+			msgs, err := s.malfeasanceSub.Fetch(100, nats.MaxWait(8736*time.Hour))
 			if err == nats.ErrTimeout {
 				fmt.Println("Error ", err.Error())
 				continue
@@ -308,7 +318,8 @@ func (s *Sink) StartMalfeasanceSink() {
 				errJson := json.Unmarshal(msg.Data, &malfeasance)
 				fmt.Println("Next Malfeasance: ", malfeasance)
 				if errJson != nil {
-					log.Fatal("Error parsing json malfeasance: ", err)
+					fmt.Println("Error parsing json malfeasance: ", errJson)
+					msg.Nak()
 					continue
 				}
 				saveErr := s.WriteDB.SaveMalfeasance(malfeasance)
