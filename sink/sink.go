@@ -123,8 +123,8 @@ func (s *Sink) StartRewardsSink() {
 				continue
 			}
 			var wg sync.WaitGroup
+			wg.Add(len(msgs))
 			for _, msg := range msgs {
-				wg.Add(1)
 				go s.processRewardMessage(msg, &wg)
 			}
 			wg.Wait()
@@ -199,6 +199,7 @@ func (s *Sink) StartAtxSink() {
 			}
 
 			var wg sync.WaitGroup
+			wg.Add(len(msgs))
 			for _, msg := range msgs {
 				go s.processAtxMessage(msg, &wg)
 			}
