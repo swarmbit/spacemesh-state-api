@@ -311,6 +311,7 @@ func (m *WriteDB) SaveTransactions(transaction *nats.Transaction, result bool) e
                 Layer:           transaction.Header.LayerID,
                 Status:          transaction.Header.Status,
                 Method:          transaction.Header.Method,
+                Type:            transactionData.Tx.GetType(),
                 Amount:          transactionData.Tx.GetAmount(),
                 Counter:         transactionData.Tx.GetCounter(),
                 GasPrice:        transactionData.Tx.GetGasPrice(),

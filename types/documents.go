@@ -65,6 +65,7 @@ type TransactionDoc struct {
 	Layer           uint32 `bson:"layer"`
 	Counter         uint64 `bson:"counter"`
 	Method          uint8  `json:"method"`
+	Type            uint8  `json:"type"`
 	Complete        bool   `json:"complete"`
 }
 
