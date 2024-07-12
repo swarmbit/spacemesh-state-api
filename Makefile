@@ -5,6 +5,13 @@ BIN_DIR ?= $(PROJ_DIR)../build/
 build: server
 .PHONY: build
 
+build-mainnet-accounts: mainnet_accounts
+.PHONY: build-mainnet-accounts
+
+mainnet_accounts:
+	cd mainnet_accounts; go build -o $(BIN_DIR)$@ .
+.PHONY: mainnet_accounts
+
 server:
 	cd server; go build -o $(BIN_DIR)$@ .
 .PHONY: server
