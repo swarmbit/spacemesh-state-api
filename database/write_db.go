@@ -9,6 +9,7 @@ import (
     sTypes "github.com/spacemeshos/go-spacemesh/common/types"
     "github.com/spacemeshos/go-spacemesh/nats"
     "github.com/swarmbit/spacemesh-state-api/pkg/transactionparser"
+    transactionparsertypes "github.com/swarmbit/spacemesh-state-api/pkg/transactionparser/transaction"
     "github.com/swarmbit/spacemesh-state-api/types"
     "go.mongodb.org/mongo-driver/bson"
     "go.mongodb.org/mongo-driver/mongo"
@@ -370,12 +371,18 @@ func (m *WriteDB) SaveTransactions(transaction *nats.Transaction, result bool) e
 
             // update balance for sender account
             if updateBalances {
+                senderAccount := transactionDoc.PrincipaAccount
+
+                // if drain vault transaction deduct fees and balance from vault account
+                if transactionData.Type == transactionparsertypes.TypeDrainVault {
+                    senderAccount = transactionData.Vault.GetVault().String()
+                }
 
                 fee := transactionDoc.Gas * transactionDoc.GasPrice
                 valueToDeduct := (int64(transactionDoc.Amount) + int64(fee)) * -1
                 updateResult, err := accountsColl.UpdateOne(
                     context.TODO(),
-                    bson.D{{Key: "_id", Value: transactionDoc.PrincipaAccount}},
+                    bson.D{{Key: "_id", Value: senderAccount}},
                     bson.D{{Key: "$inc", Value: bson.D{
                         {Key: "balance", Value: valueToDeduct},
                         {Key: "sent", Value: transactionDoc.Amount},
