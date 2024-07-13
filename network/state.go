@@ -127,22 +127,6 @@ func (n *NetworkState) fetchNetworkInfo() {
 	}
 	log.Println("Got atx next epoch totals")
 
-	/*
-	// not performant enough in the current form
-	hexAtx, err := n.getHigestAtx(uint64(epoch - 1))
-	if err != nil {
-		fmt.Printf("Failed to get highest atx: %s", err.Error())
-		return
-	}
-	log.Println("Got highest atx")
-
-
-	base64Atx, err := hexToBase64(hexAtx)
-	if err != nil {
-		fmt.Printf("Failed to get base64 atx: %s", err.Error())
-		return
-	}*/
-
 	totalSlots, err := n.networkUtils.GetNumberOfSlots(uint64(atxEpochTotals.TotalWeight), atxEpochTotals.TotalWeight, epoch.Uint32())
 	if err != nil {
 		fmt.Printf("Failed to get total slots: %s", err.Error())
@@ -162,7 +146,7 @@ func (n *NetworkState) fetchNetworkInfo() {
 		TotalSlots:             uint64(totalSlots),
 		TotalWeight:            atxEpochTotals.TotalWeight,
 		EffectiveUnitsCommited: atxEpochTotals.TotalEffectiveNumUnits,
-		CirculatingSupply:      networkInfo.CirculatingSupply,
+		CirculatingSupply:      networkInfo.CirculatingSupply + n.networkUtils.Vested(uint64(layer.Layer)),
 		Price:                  p,
 		MarketCap:              uint64(float64(networkInfo.CirculatingSupply) * p),
 		TotalAccounts:          uint64(totalAccounts + genisesAccounts),
@@ -174,6 +158,7 @@ func (n *NetworkState) fetchNetworkInfo() {
 			EffectiveUnitsCommited: int64(atxNextEpochTotals.TotalEffectiveNumUnits),
 			TotalActiveSmeshers:    atxNextEpoch,
 		},
+		Vested: n.networkUtils.Vested(uint64(layer.Layer)),
 	})
 
 }

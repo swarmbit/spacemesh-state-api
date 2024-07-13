@@ -1,37 +1,17 @@
 package v0
 
 import (
-	address "github.com/spacemeshos/go-spacemesh/common/types"
-
+	"github.com/spacemeshos/go-spacemesh/common/types"
 	"github.com/spacemeshos/go-scale"
 	"github.com/spacemeshos/go-spacemesh/genvm/core"
+	"github.com/spacemeshos/go-spacemesh/genvm/templates/multisig"
+	"github.com/spacemeshos/go-spacemesh/genvm/templates/wallet"
 	"github.com/spacemeshos/go-spacemesh/hash"
 
 	"github.com/swarmbit/spacemesh-state-api/pkg/transactionparser/transaction"
 )
 
 //go:generate scalegen SpawnTransaction SpawnMultisigTransaction SpendTransaction
-
-var (
-	// TemplateAddress is an address of the Wallet template.
-	TemplateAddress address.Address
-	// TemplateAddress1 is an address of the 1/N multisig template.
-	TemplateAddress1 address.Address
-	// TemplateAddress2 is an address of the 2/N multisig template.
-	TemplateAddress2 address.Address
-	// TemplateAddress3 is an address of the 3/N multisig template.
-	TemplateAddress3 address.Address
-)
-
-func init() {
-	TemplateAddress[len(TemplateAddress)-1] = 1
-	TemplateAddress1[len(TemplateAddress1)-1] = 2
-	TemplateAddress2[len(TemplateAddress2)-1] = 3
-	TemplateAddress3[len(TemplateAddress3)-1] = 4
-}
-
-// Signature returns the signature of the transaction.
-type Signature [64]byte
 
 // PublicKey is a public key of the transaction.
 type PublicKey [32]byte
@@ -46,37 +26,23 @@ func (h *PublicKey) DecodeScale(d *scale.Decoder) (int, error) {
 	return scale.DecodeByteArray(d, h[:])
 }
 
-func getMultisigTemplate(pkNum int) address.Address {
-	switch pkNum {
-	case 2:
-		return TemplateAddress1
-	case 3:
-		return TemplateAddress2
-	case 4:
-		return TemplateAddress3
-	default:
-		return TemplateAddress
-	}
-}
-
 // ComputePrincipal address as the last 20 bytes from blake3(scale(template || args)).
-func ComputePrincipal(template address.Address, args scale.Encodable) address.Address {
+func ComputePrincipal(template core.Address, args scale.Encodable) types.Address {
 	hasher := hash.New()
 	encoder := scale.NewEncoder(hasher)
 	_, _ = template.EncodeScale(encoder)
 	_, _ = args.EncodeScale(encoder)
 	hs := hasher.Sum(nil)
-	return address.GenerateAddress(hs[12:])
+	return types.GenerateAddress(hs[12:])
 }
 
 // SpawnTransaction initial transaction for wallet.
 type SpawnTransaction struct {
 	Type      uint8
-	Principal address.Address
+	Principal types.Address
 	Method    uint8
-	Template  address.Address
+	Template  types.Address
 	Payload   SpawnPayload
-	Sign      Signature
 }
 
 // SpawnPayload provides arguments for spawn transaction.
@@ -107,10 +73,10 @@ func (t *SpawnTransaction) GetCounter() uint64 {
 }
 
 // GetReceiver returns receiver address of the transaction.
-func (t *SpawnTransaction) GetReceiver() address.Address {
+func (t *SpawnTransaction) GetReceiver() types.Address {
 	args := SpawnArguments{}
 	copy(args.PublicKey[:], t.Payload.Arguments.PublicKey[:])
-	return ComputePrincipal(TemplateAddress, &args)
+	return ComputePrincipal(wallet.TemplateAddress, &args)
 }
 
 // GetGasPrice returns gas price of the transaction.
@@ -119,7 +85,7 @@ func (t *SpawnTransaction) GetGasPrice() uint64 {
 }
 
 // GetPrincipal returns the principal address who pay for gas for this transaction.
-func (t *SpawnTransaction) GetPrincipal() address.Address {
+func (t *SpawnTransaction) GetPrincipal() types.Address {
 	return t.Principal
 }
 
@@ -128,29 +94,25 @@ func (t *SpawnTransaction) GetPublicKeys() [][]byte {
 	return [][]byte{t.Payload.Arguments.PublicKey[:]}
 }
 
-// GetSignature returns signature of the transaction.
-func (t *SpawnTransaction) GetSignature() []byte {
-	return t.Sign[:]
-}
-
 // SpawnMultisigTransaction initial transaction for multisig wallet.
 type SpawnMultisigTransaction struct {
 	Type      uint8
-	Principal address.Address
+	Principal types.Address
 	Method    uint8
-	Template  address.Address
+	Template  types.Address
 	Payload   SpawnMultisigPayload
-	Sign      Signature
 }
 
 // SpawnMultisigPayload payload of the multisig spawn transaction.
 type SpawnMultisigPayload struct {
-	Arguments SpawnMultisigArguments
+	Nonce     core.Nonce
 	GasPrice  uint64
+	Arguments SpawnMultisigArguments
 }
 
 // SpawnMultisigArguments arguments for multisig spawn transaction.
 type SpawnMultisigArguments struct {
+	Required   uint8
 	PublicKeys []PublicKey `scale:"max=10"`
 }
 
@@ -170,12 +132,12 @@ func (t *SpawnMultisigTransaction) GetCounter() uint64 {
 }
 
 // GetReceiver returns receiver address of the transaction.
-func (t *SpawnMultisigTransaction) GetReceiver() address.Address {
+func (t *SpawnMultisigTransaction) GetReceiver() types.Address {
 	args := SpawnMultisigArguments{PublicKeys: make([]PublicKey, len(t.Payload.Arguments.PublicKeys))}
 	for i := range t.Payload.Arguments.PublicKeys {
 		copy(args.PublicKeys[i][:], t.Payload.Arguments.PublicKeys[i][:])
 	}
-	return ComputePrincipal(getMultisigTemplate(len(t.Payload.Arguments.PublicKeys)), &args)
+	return ComputePrincipal(multisig.TemplateAddress, &args)
 }
 
 // GetGasPrice returns gas price of the transaction.
@@ -184,7 +146,7 @@ func (t *SpawnMultisigTransaction) GetGasPrice() uint64 {
 }
 
 // GetPrincipal returns the principal address who pay for gas for this transaction.
-func (t *SpawnMultisigTransaction) GetPrincipal() address.Address {
+func (t *SpawnMultisigTransaction) GetPrincipal() types.Address {
 	return t.Principal
 }
 
@@ -197,23 +159,17 @@ func (t *SpawnMultisigTransaction) GetPublicKeys() [][]byte {
 	return result
 }
 
-// GetSignature returns the signature of the transaction.
-func (t *SpawnMultisigTransaction) GetSignature() []byte {
-	return t.Sign[:]
-}
-
 // SpendTransaction coin transfer transaction. also includes multisig.
 type SpendTransaction struct {
 	Type      uint8
-	Principal address.Address
+	Principal types.Address
 	Method    uint8
 	Payload   SpendPayload
-	Sign      Signature
 }
 
 // SpendArguments arguments of the spend transaction.
 type SpendArguments struct {
-	Destination address.Address
+	Destination types.Address
 	Amount      uint64
 }
 
@@ -239,8 +195,8 @@ func (t *SpendTransaction) GetCounter() uint64 {
 	return t.Payload.Nonce
 }
 
-// GetReceiver returns receiver address.
-func (t *SpendTransaction) GetReceiver() address.Address {
+// GetReceiver returns receiver types.
+func (t *SpendTransaction) GetReceiver() types.Address {
 	return t.Payload.Arguments.Destination
 }
 
@@ -250,7 +206,7 @@ func (t *SpendTransaction) GetGasPrice() uint64 {
 }
 
 // GetPrincipal return address which spend gas.
-func (t *SpendTransaction) GetPrincipal() address.Address {
+func (t *SpendTransaction) GetPrincipal() types.Address {
 	return t.Principal
 }
 
@@ -259,7 +215,166 @@ func (t *SpendTransaction) GetPublicKeys() [][]byte {
 	return nil // todo we do not encode publickeys in the transaction
 }
 
-// GetSignature returns signature.
-func (t *SpendTransaction) GetSignature() []byte {
-	return t.Sign[:]
+// SpawnVaultTransaction initial transaction for vault.
+type SpawnVaultTransaction struct {
+	Type      uint8
+	Principal types.Address
+	Method    uint8
+	Template  types.Address
+	Payload   SpawnVaultPayload
+}
+
+// SpawnVaultPayload provides arguments for spawn vault transaction.
+type SpawnVaultPayload struct {
+	Nonce     core.Nonce
+	GasPrice  uint64
+	Arguments SpawnVaultArguments
+}
+
+// SpawnVaultArguments is the arguments of the spawn vault transaction.
+type SpawnVaultArguments struct {
+	Owner               core.Address
+	TotalAmount         uint64
+	InitialUnlockAmount uint64
+	VestingStart        core.LayerID
+	VestingEnd          core.LayerID
+}
+
+// GetType returns type of the transaction.
+func (t *SpawnVaultTransaction) GetType() uint8 {
+	return transaction.TypeSpawn
+}
+
+// GetAmount returns amount of the transaction. Always zero for spawn transaction.
+func (t *SpawnVaultTransaction) GetAmount() uint64 {
+	return 0
+}
+
+// GetCounter returns counter of the transaction. Always zero for spawn transaction.
+func (t *SpawnVaultTransaction) GetCounter() uint64 {
+	return 0
+}
+
+// GetReceiver returns receiver address of the transaction.
+func (t *SpawnVaultTransaction) GetReceiver() types.Address {
+	return types.Address{}
+}
+
+// GetGasPrice returns gas price of the transaction.
+func (t *SpawnVaultTransaction) GetGasPrice() uint64 {
+	return t.Payload.GasPrice
+}
+
+// GetPrincipal returns the principal address who pay for gas for this transaction.
+func (t *SpawnVaultTransaction) GetPrincipal() types.Address {
+	return t.Principal
+}
+
+// GetPublicKeys returns public keys of the transaction.
+func (t *SpawnVaultTransaction) GetPublicKeys() [][]byte {
+	return [][]byte{}
+}
+
+func (t *SpawnVaultTransaction) GetOwner() core.Address {
+	return t.Payload.Arguments.Owner
+}
+
+func (t *SpawnVaultTransaction) GetTotalAmount() uint64 {
+	return t.Payload.Arguments.TotalAmount
+}
+
+func (t *SpawnVaultTransaction) GetInitialUnlockAmount() uint64 {
+	return t.Payload.Arguments.InitialUnlockAmount
+}
+
+func (t *SpawnVaultTransaction) GetVestingStart() core.LayerID {
+	return t.Payload.Arguments.VestingStart
+}
+
+func (t *SpawnVaultTransaction) GetVestingEnd() core.LayerID {
+	return t.Payload.Arguments.VestingEnd
+}
+
+func (t *SpawnVaultTransaction) GetVault() core.Address {
+	return core.Address{}
+}
+
+// DrainVaultTransaction initial transaction for vault.
+type DrainVaultTransaction struct {
+	Type      uint8
+	Principal types.Address
+	Method    uint8
+	Payload   DrainVaultPayload
+}
+
+// DrainVaultPayload provides arguments for drain vault transaction.
+type DrainVaultPayload struct {
+	Nonce     core.Nonce
+	GasPrice  uint64
+	Arguments DrainVaultArguments
+}
+
+// DrainVaultArguments is the arguments of the drain vault transaction.
+type DrainVaultArguments struct {
+	Vault core.Address
+	SpendArguments
+}
+
+// GetType returns type of the transaction.
+func (t *DrainVaultTransaction) GetType() uint8 {
+	return transaction.TypeDrainVault
+}
+
+// GetAmount returns amount of the transaction. Always zero for spawn transaction.
+func (t *DrainVaultTransaction) GetAmount() uint64 {
+	return t.Payload.Arguments.Amount
+}
+
+// GetCounter returns counter of the transaction. Always zero for spawn transaction.
+func (t *DrainVaultTransaction) GetCounter() uint64 {
+	return t.Payload.Nonce
+}
+
+// GetReceiver returns receiver address of the transaction.
+func (t *DrainVaultTransaction) GetReceiver() types.Address {
+	return t.Payload.Arguments.Destination
+}
+
+// GetGasPrice returns gas price of the transaction.
+func (t *DrainVaultTransaction) GetGasPrice() uint64 {
+	return t.Payload.GasPrice
+}
+
+// GetPrincipal returns the principal address who pay for gas for this transaction.
+func (t *DrainVaultTransaction) GetPrincipal() types.Address {
+	return t.Principal
+}
+
+// GetPublicKeys returns public keys of the transaction.
+func (t *DrainVaultTransaction) GetPublicKeys() [][]byte {
+	return [][]byte{}
+}
+
+func (t *DrainVaultTransaction) GetOwner() core.Address {
+	return core.Address{}
+}
+
+func (t *DrainVaultTransaction) GetTotalAmount() uint64 {
+	return 0
+}
+
+func (t *DrainVaultTransaction) GetInitialUnlockAmount() uint64 {
+	return 0
+}
+
+func (t *DrainVaultTransaction) GetVestingStart() core.LayerID {
+	return core.LayerID(0)
+}
+
+func (t *DrainVaultTransaction) GetVestingEnd() core.LayerID {
+	return core.LayerID(0)
+}
+
+func (t *DrainVaultTransaction) GetVault() core.Address {
+	return t.Payload.Arguments.Vault
 }
