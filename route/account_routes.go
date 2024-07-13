@@ -434,11 +434,15 @@ func (a *AccountRoutes) GetAccountTransactions(c *gin.Context) {
             if v.Method == 16 {
                 method = "Spend"
             }
+            if v.Method == 17 {
+                method = "DrainVault"
+            }
             transactionsResponse[i] = &types.Transaction{
                 ID:               v.ID,
                 Status:           v.Status,
                 PrincipalAccount: v.PrincipaAccount,
                 ReceiverAccount:  v.ReceiverAccount,
+                VaultAccount:     v.VaultAccount,
                 Fee:              v.Gas * v.GasPrice,
                 Amount:           v.Amount,
                 Layer:            v.Layer,

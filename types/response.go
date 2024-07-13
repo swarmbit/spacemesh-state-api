@@ -63,6 +63,7 @@ type Transaction struct {
     Status           uint8  `json:"status"`
     PrincipalAccount string `json:"principalAccount"`
     ReceiverAccount  string `json:"receiverAccount"`
+    VaultAccount     string `json:"vaultAccount"`
     Fee              uint64 `json:"fee"`
     Amount           uint64 `json:"amount"`
     Layer            uint32 `json:"layer"`
@@ -101,14 +102,16 @@ type NetworkInfo struct {
     TotalSlots             uint64                `json:"totalSlots"`
     TotalWeight            uint64                `json:"totalWeight"`
     CirculatingSupply      uint64                `json:"circulatingSupply"`
+    TotalRewards           uint64                `json:"rewards"`
     Price                  float64               `json:"price"`
     MarketCap              uint64                `json:"marketCap"`
     TotalAccounts          uint64                `json:"totalAccounts"`
     TotalActiveSmeshers    uint64                `json:"totalActiveSmeshers"`
     AtxHex                 string                `json:"atxHex"`
     AtxBase64              string                `json:"atxBase64"`
-    NextEpoch              *NetworkInfoNextEpoch `json:"nextEpoch"`
     Vested                 uint64                `json:"vested"`
+    TotalVaulted           uint64                `json:"totalVaulted"`
+    NextEpoch              *NetworkInfoNextEpoch `json:"nextEpoch"`
 }
 
 type NetworkInfoNextEpoch struct {

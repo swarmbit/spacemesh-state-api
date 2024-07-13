@@ -303,10 +303,17 @@ func (m *WriteDB) SaveTransactions(transaction *nats.Transaction, result bool) e
                 receiverString = receiver.String()
             }
 
+            vaultString := ""
+            if transactionData.Type == transactionparsertypes.TypeDrainVault {
+                vaultString = transactionData.Vault.GetVault().String()
+            }
+
+
             transactionDoc = &types.TransactionDoc{
                 ID:              transaction.ID,
                 PrincipaAccount: transaction.Header.Principal,
                 ReceiverAccount: receiverString,
+                VaultAccount:    vaultString,
                 Fee:             transaction.Header.Fee,
                 Gas:             transaction.Header.Gas,
                 Layer:           transaction.Header.LayerID,
@@ -375,7 +382,7 @@ func (m *WriteDB) SaveTransactions(transaction *nats.Transaction, result bool) e
 
                 // if drain vault transaction deduct fees and balance from vault account
                 if transactionData.Type == transactionparsertypes.TypeDrainVault {
-                    senderAccount = transactionData.Vault.GetVault().String()
+                    senderAccount = transactionDoc.VaultAccount
                 }
 
                 fee := transactionDoc.Gas * transactionDoc.GasPrice

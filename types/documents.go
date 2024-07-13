@@ -58,6 +58,7 @@ type TransactionDoc struct {
 	Status          uint8  `json:"status"`
 	PrincipaAccount string `bson:"principal_account"`
 	ReceiverAccount string `bson:"receiver_account"`
+	VaultAccount 	string `bson:"vault_account"`
 	Fee             uint64 `bson:"fee"`
 	Gas             uint64 `bson:"gas"`
 	GasPrice        uint64 `bson:"gas_price"`
