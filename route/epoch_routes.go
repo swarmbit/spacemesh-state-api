@@ -117,7 +117,7 @@ func (e *EpochRoutes) GetEpochAtx(c *gin.Context) {
 	}
 
 	atxs, errAtx := e.db.GetAtxForEpochPaginated(uint64(epoch-1), int64(offset), int64(limit), sort)
-	count, errCount := e.db.CountAtxForEpoch(uint64(epoch - 1))
+	count, errCount := e.db.CountAtxEpoch(uint64(epoch - 1))
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{

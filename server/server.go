@@ -30,13 +30,16 @@ func StartServer(configValues *config.Config) {
 	priceResolver := price.NewPriceResolver(configValues)
 	log.Println("Created price resolver")
 
-	s := sink.NewSink(configValues, writeDB)
-	s.StartRewardsSink()
-	s.StartLayersSink()
-	s.StartAtxSink()
-	s.StartTransactionCreatedSink()
-	s.StartTransactionResultSink()
-	s.StartMalfeasanceSink()
+	if configValues.Nats.Enabled {
+		s := sink.NewSink(configValues, writeDB)
+		s.StartRewardsSink()
+		s.StartLayersSink()
+		s.StartAtxSink()
+		s.StartTransactionCreatedSink()
+		s.StartTransactionResultSink()
+		s.StartMalfeasanceSink()
+	}
+
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 

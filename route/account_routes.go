@@ -109,6 +109,8 @@ func (a *AccountRoutes) GetAccountsPost(c *gin.Context) {
             accountsResponse[i] = &types.AccountPostResponse{
                 Account:                v.Id.Coinbase,
                 TotalEffectiveNumUnits: v.TotalEffectiveNumUnits,
+                TotalAtx:               v.TotalAtx,
+                TotalWeight:            v.TotalWeight,
             }
         }
 
@@ -116,7 +118,7 @@ func (a *AccountRoutes) GetAccountsPost(c *gin.Context) {
         c.JSON(200, accountsResponse)
     } else {
         c.Header("total", strconv.FormatInt(count, 10))
-        c.JSON(200, make([]*types.AccountPost, 0))
+        c.JSON(200, make([]*types.AccountAtxDoc, 0))
     }
 }
 

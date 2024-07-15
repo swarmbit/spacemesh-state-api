@@ -25,7 +25,11 @@ const rewardsCollection = "rewards"
 const layersCollection = "layers"
 const atxsCollection = "atxs"
 const atxsEpochsCollection = "atxsEpochs"
+
+const accountAtxsEpochsCollection = "accountAtxsEpochs"
+
 const nodesCollection = "nodes"
+const nodesCountCollection = "nodesCount"
 const networkInfoCollection = "networkInfo"
 const accountsCollection = "accounts"
 const transactionsCollection = "transactions"
@@ -162,6 +166,22 @@ func createIndexes(client *mongo.Client) error {
         return err
     }
 
+    accountAtxsEpochsColl := client.Database(database).Collection(accountAtxsEpochsCollection)
+    accountAtxEpochsIndexes := []mongo.IndexModel{
+        {
+            Keys: bson.D{
+                {Key: "_id", Value: 1},
+                {Key: "totalWeight", Value: 1},
+            },
+            Options: options.Index().SetUnique(false),
+        },
+    }
+
+    _, err = accountAtxsEpochsColl.Indexes().CreateMany(context.TODO(), accountAtxEpochsIndexes)
+    if err != nil {
+        log.Println(err)
+        return err
+    }
     return nil
 }
 
@@ -187,7 +207,9 @@ func (m *WriteDB) SaveAtx(atx *nats.Atx) error {
     callback := func(sessionContext mongo.SessionContext) (interface{}, error) {
         atxsColl := m.client.Database(database).Collection(atxsCollection)
         atxsEpochsColl := m.client.Database(database).Collection(atxsEpochsCollection)
+        accountAtxsEpochsColl := m.client.Database(database).Collection(accountAtxsEpochsCollection)
         nodesColl := m.client.Database(database).Collection(nodesCollection)
+        nodesCountColl := m.client.Database(database).Collection(nodesCountCollection)
         accountsColl := m.client.Database(database).Collection(accountsCollection)
         weight := getATXWeight(atx.TickCount, uint64(atx.EffectiveNumUnits))
         atxDoc := &types.AtxDoc{
@@ -219,6 +241,24 @@ func (m *WriteDB) SaveAtx(atx *nats.Atx) error {
                 bson.D{{Key: "$inc", Value: bson.D{
                     {Key: "totalEffectiveNumUnits", Value: atx.EffectiveNumUnits},
                     {Key: "totalWeight", Value: weight},
+                    {Key: "totalAtx", Value: 1},
+                }}},
+                options.Update().SetUpsert(true),
+            )
+            if err != nil {
+                return updateResult, err
+            }
+
+            updateResult, err = accountAtxsEpochsColl.UpdateOne(
+                context.TODO(),
+                bson.D{{Key: "_id", Value: bson.M{
+                    "coinbase":      atx.Coinbase,
+                    "publish_epoch": atx.PublishEpoch,
+                }}},
+                bson.D{{Key: "$inc", Value: bson.D{
+                    {Key: "totalEffectiveNumUnits", Value: atx.EffectiveNumUnits},
+                    {Key: "totalWeight", Value: weight},
+                    {Key: "totalAtx", Value: 1},
                 }}},
                 options.Update().SetUpsert(true),
             )
@@ -241,6 +281,21 @@ func (m *WriteDB) SaveAtx(atx *nats.Atx) error {
                 }}},
                 options.Update().SetUpsert(true),
             )
+
+            if updateResult.UpsertedCount == 1 {
+                updateResult, err = nodesCountColl.UpdateOne(
+                    context.TODO(),
+                    bson.D{{Key: "_id", Value: "nodesCount"}},
+                    bson.D{{Key: "$inc", Value: bson.D{
+                        {Key: "count", Value: 1},
+                    }}},
+                    options.Update().SetUpsert(true),
+                )
+
+                if err != nil {
+                    return updateResult, err
+                }
+            }
 
             updateResult, err = accountsColl.UpdateOne(
                 context.TODO(),
@@ -307,7 +362,6 @@ func (m *WriteDB) SaveTransactions(transaction *nats.Transaction, result bool) e
             if transactionData.Type == transactionparsertypes.TypeDrainVault {
                 vaultString = transactionData.Vault.GetVault().String()
             }
-
 
             transactionDoc = &types.TransactionDoc{
                 ID:              transaction.ID,

@@ -8,6 +8,7 @@ import (
     "github.com/swarmbit/spacemesh-state-api/types"
     "net/http"
     "strconv"
+    "strings"
 )
 
 type TransactionRoutes struct {
@@ -30,6 +31,25 @@ func (t *TransactionRoutes) GetTransactions(c *gin.Context) {
     limitStr := c.DefaultQuery("limit", "20")
     sortStr := c.DefaultQuery("sort", "asc")
     completeStr := c.DefaultQuery("complete", "true")
+    methodStr := strings.ToLower(c.DefaultQuery("method", ""))
+    minAmountStr := c.DefaultQuery("minAmount", "-1")
+
+    method := -1
+    if methodStr == "spawn" {
+        method = 0
+    } else if methodStr == "spend" {
+        method = 16
+    } else if methodStr == "drainvault" {
+        method = 17
+    }
+
+    minAmount, err := strconv.Atoi(minAmountStr)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "error": "min amount must be a valid integer",
+        })
+        return
+    }
 
     offset, err := strconv.Atoi(offsetStr)
     if err != nil {
@@ -62,7 +82,7 @@ func (t *TransactionRoutes) GetTransactions(c *gin.Context) {
 
     complete := completeStr == "true"
 
-    transactions, errRewards := t.db.GetAllTransactions(int64(offset), int64(limit), sort, complete)
+    transactions, errRewards := t.db.GetAllTransactions(int64(offset), int64(limit), sort, complete, method, minAmount)
     count, errCount := t.db.CountAllTransactions()
 
     if errRewards != nil || errCount != nil {

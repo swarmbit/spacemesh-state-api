@@ -34,7 +34,9 @@ type AccountGroupResponse struct {
 }
 type AccountPostResponse struct {
     Account                string `json:"account"`
-    TotalEffectiveNumUnits int64  `json:"totalEffectiveNumUnits"`
+    TotalEffectiveNumUnits uint32 `json:"totalEffectiveNumUnits"`
+    TotalAtx               uint64 `json:"totalAtx"`
+    TotalWeight            uint64 `json:"totalWeight"`
 }
 
 type Account struct {
