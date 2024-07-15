@@ -732,18 +732,29 @@ func (m *ReadDB) GetNodes(skip int64, limit int64) ([]*types.NodeDoc, error) {
     }
     return nodes, nil
 }
-func (m *ReadDB) GetAllTransactions(skip int64, limit int64, sort int8, complete bool) ([]*types.TransactionDoc, error) {
+func (m *ReadDB) GetAllTransactions(skip int64, limit int64, sort int8, complete bool, method int, minAmount int) ([]*types.TransactionDoc, error) {
     transactionsColl := m.client.Database(database).Collection(transactionsCollection)
-
     findOptions := options.Find()
     findOptions.SetSkip(skip)
     findOptions.SetLimit(limit)
     findOptions.SetSort(bson.M{"layer": sort})
-
     ctx := context.TODO()
+
+    // Start with the base filter
     filter := bson.D{
         {Key: "complete", Value: complete},
     }
+
+    // Add method filter if method > -1
+    if method > -1 {
+        filter = append(filter, bson.E{Key: "method", Value: method})
+    }
+
+    // Add minAmount filter if minAmount > -1
+    if minAmount > -1 {
+        filter = append(filter, bson.E{Key: "amount", Value: bson.M{"$gte": minAmount}})
+    }
+
     cursor, err := transactionsColl.Find(
         ctx,
         filter,
@@ -758,6 +769,7 @@ func (m *ReadDB) GetAllTransactions(skip int64, limit int64, sort int8, complete
     if err = cursor.All(ctx, &transactions); err != nil {
         return nil, err
     }
+
     return transactions, nil
 }
 
