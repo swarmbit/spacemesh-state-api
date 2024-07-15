@@ -280,7 +280,7 @@ curl -X GET "https://spacemesh-api-v2.swarmbit.io/account/sm1qqqqqqpzvpdcm0c09aa
 
 ```sh
 curl -X GET "https://spacemesh-api-v2.swarmbit.io/account/sm1qqqqqqpzvpdcm0c09aac3fvzywmt7v0dyqvpygq55xla6/transactions\
-?offset=0&limit=20&sort=desc&complete=true" \
+?offset=0&limit=20&sort=desc&complete=true&method=spawn&minAmount=-1" \
     -H "x-api-key: <api-key>"
 ```
 
