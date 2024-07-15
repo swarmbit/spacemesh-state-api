@@ -109,6 +109,8 @@ func (a *AccountRoutes) GetAccountsPost(c *gin.Context) {
             accountsResponse[i] = &types.AccountPostResponse{
                 Account:                v.Id.Coinbase,
                 TotalEffectiveNumUnits: v.TotalEffectiveNumUnits,
+                TotalAtx:               v.TotalAtx,
+                TotalWeight:            v.TotalWeight,
             }
         }
 
