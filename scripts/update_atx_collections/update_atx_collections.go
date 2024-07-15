@@ -13,7 +13,7 @@ import (
 func main() {
 
     // Set client options
-    clientOptions := options.Client().ApplyURI("mongodb://spacemesh:<password>@spacemesh-mongodb-svc.spacemesh.svc.cluster.local:27017/admin?replicaSet=spacemesh-mongodb&authMechanism=SCRAM-SHA-256")
+    clientOptions := options.Client().ApplyURI("mongodb://spacemesh:<>@spacemesh-mongodb-svc.spacemesh.svc.cluster.local:27017/admin?replicaSet=spacemesh-mongodb&authMechanism=SCRAM-SHA-256")
     //clientOptions := options.Client().ApplyURI("mongodb://localhost:27017/admin")
 
     // Connect to MongoDB
@@ -37,17 +37,23 @@ func main() {
     }
     
     epochs, err := getDocumentIDs(client, "spacemesh", "atxsEpochs")
+    if err != nil {
+        fmt.Println("Failed to get epochs: ", err)
+        panic("Failed to get epochs")
+    }
+    
+    fmt.Println("Epochs to process: ", epochs)
 
     for _, epoch := range epochs {
         fmt.Println("Process epoch atx count: ", epoch)
         
-        err := processAtxCount(client, epoch)
+        err := processAtxCount(client, int32(epoch))
         if err != nil {
             panic("Failed to process atx count")
         }
         
         fmt.Println("Process epoch account atx: ", epoch)
-        err = processAccountAtxEpoch(client, epoch)
+        err = processAccountAtxEpoch(client, int32(epoch))
         if err != nil {
             panic("Failed to process account atx")
         }
@@ -176,7 +182,7 @@ func processAccountAtxEpoch(client *mongo.Client, epoch int32) error {
 
     return nil
 }
-func getDocumentIDs(client *mongo.Client, databaseName, collectionName string) ([]int32, error) {
+func getDocumentIDs(client *mongo.Client, databaseName, collectionName string) ([]int64, error) {
     // Select the database and collection
     collection := client.Database(databaseName).Collection(collectionName)
 
@@ -191,16 +197,17 @@ func getDocumentIDs(client *mongo.Client, databaseName, collectionName string) (
     defer cursor.Close(context.TODO())
 
     // Create a slice to store the IDs
-    var ids []int32
+    var ids []int64
 
     // Iterate through the results and append the IDs to the slice
     for cursor.Next(context.TODO()) {
         var result bson.M
         err := cursor.Decode(&result)
         if err != nil {
-            return nil, err
+            return ids, err
         }
-        if id, ok := result["_id"].(int32); ok {
+        fmt.Println("Parse next result: ", result)
+        if id, ok := result["_id"].(int64); ok {
             ids = append(ids, id)
         }
     }

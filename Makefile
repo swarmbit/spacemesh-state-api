@@ -1,6 +1,7 @@
 export CGO_ENABLED := 1
 export CGO_CFLAGS := $(CGO_CFLAGS) -DSQLITE_ENABLE_DBSTAT_VTAB=1
 BIN_DIR ?= $(PROJ_DIR)../build/
+SCRIPT_BIN_DIR ?= $(PROJ_DIR)../../build/
 
 build: server
 .PHONY: build
@@ -12,11 +13,11 @@ build-update_atx-collections: update_atx-collections
 .PHONY: build-update_atx-collections
 
 mainnet_accounts:
-	cd mainnet_accounts; go build -o $(BIN_DIR)$@ .
+	cd scripts/mainnet_accounts; go build -o $(SCRIPT_BIN_DIR)$@ .
 .PHONY: mainnet_accounts
 
 update_atx-collections:
-	cd update_atx_collections; go build -o $(BIN_DIR)$@ .
+	cd scripts/update_atx_collections; go build -o $(SCRIPT_BIN_DIR)$@ .
 .PHONY: update_atx_collections
 
 server:
