@@ -126,10 +126,23 @@ func (m *ReadDB) CountTransactions(account string) (int64, error) {
     return accountResult, nil
 }
 
-func (m *ReadDB) CountAllTransactions() (int64, error) {
+func (m *ReadDB) CountAllTransactions(complete bool, method int, minAmount int) (int64, error) {
     transactionsColl := m.client.Database(database).Collection(transactionsCollection)
 
-    filter := bson.D{}
+    filter := bson.D{
+        {Key: "complete", Value: complete},
+    }
+
+    // Add method filter if method > -1
+    if method > -1 {
+        filter = append(filter, bson.E{Key: "method", Value: method})
+    }
+
+    // Add minAmount filter if minAmount > -1
+    if minAmount > -1 {
+        filter = append(filter, bson.E{Key: "amount", Value: bson.M{"$gte": minAmount}})
+    }
+    
     accountResult, err := transactionsColl.CountDocuments(
         context.TODO(),
         filter,

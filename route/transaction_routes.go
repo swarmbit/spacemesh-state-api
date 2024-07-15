@@ -83,7 +83,7 @@ func (t *TransactionRoutes) GetTransactions(c *gin.Context) {
     complete := completeStr == "true"
 
     transactions, errRewards := t.db.GetAllTransactions(int64(offset), int64(limit), sort, complete, method, minAmount)
-    count, errCount := t.db.CountAllTransactions()
+    count, errCount := t.db.CountAllTransactions(complete, method, minAmount)
 
     if errRewards != nil || errCount != nil {
         c.JSON(http.StatusInternalServerError, gin.H{
