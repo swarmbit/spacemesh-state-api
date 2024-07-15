@@ -6,8 +6,8 @@
         "uri": "mongodb://localhost:27017"
     },
     "nats": {
-        "enabled": false,
-        "uri": "nats://0.0.0.0:4222"
+        "enabled": true,
+        "uri": "nats://0.0.0.0:5222"
     },
     "price": {
         "provider": "coinpaprika",

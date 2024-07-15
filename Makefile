@@ -8,9 +8,16 @@ build: server
 build-mainnet-accounts: mainnet_accounts
 .PHONY: build-mainnet-accounts
 
+build-update_atx-collections: update_atx-collections
+.PHONY: build-update_atx-collections
+
 mainnet_accounts:
 	cd mainnet_accounts; go build -o $(BIN_DIR)$@ .
 .PHONY: mainnet_accounts
+
+update_atx-collections:
+	cd update_atx_collections; go build -o $(BIN_DIR)$@ .
+.PHONY: update_atx_collections
 
 server:
 	cd server; go build -o $(BIN_DIR)$@ .
@@ -20,7 +27,7 @@ run-local: build
 	./build/server ./local/config.json
 
 docker-build-api:
-	docker build -t ghcr.io/swarmbit/spacemesh-state-api-v2:v2.4.4 .
+	docker build -t ghcr.io/swarmbit/spacemesh-state-api-v2:v2.4.5 .
 
 docker-push-api: docker-build-api
-	docker push ghcr.io/swarmbit/spacemesh-state-api-v2:v2.4.4
+	docker push ghcr.io/swarmbit/spacemesh-state-api-v2:v2.4.5
