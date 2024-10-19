@@ -11,7 +11,7 @@ import (
 	"github.com/swarmbit/spacemesh-state-api/database"
 	"github.com/swarmbit/spacemesh-state-api/price"
 	"github.com/swarmbit/spacemesh-state-api/route"
-	"github.com/swarmbit/spacemesh-state-api/sink"
+	"github.com/swarmbit/spacemesh-state-api/sync/processor"
 )
 
 func StartServer(configValues *config.Config) {
@@ -30,14 +30,9 @@ func StartServer(configValues *config.Config) {
 	priceResolver := price.NewPriceResolver(configValues)
 	log.Println("Created price resolver")
 
-	if configValues.Nats.Enabled {
-		s := sink.NewSink(configValues, writeDB)
-		s.StartRewardsSink()
-		s.StartLayersSink()
-		s.StartAtxSink()
-		s.StartTransactionCreatedSink()
-		s.StartTransactionResultSink()
-		s.StartMalfeasanceSink()
+	if configValues.Sync.Enabled {
+		p := processor.NewSyncProcessor(configValues, writeDB)
+		p.StartProcessingSync()
 	}
 
 	gin.SetMode(gin.ReleaseMode)

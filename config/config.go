@@ -4,7 +4,7 @@ type Config struct {
     Server *ServerConfig `json:"server"`
     Price  *PriceConfig  `json:"price"`
     DB     *DBConfig     `json:"db"`
-    Nats   *NatsConfig   `json:"nats"`
+    Sync   *SyncConfig   `json:"sync"`
     Poets  []*PoetConfig `json:"poets"`
 }
 
@@ -17,7 +17,7 @@ type ServerConfig struct {
     Port string `json:"port"`
 }
 
-type NatsConfig struct {
+type SyncConfig struct {
     Enabled bool   `json:"enabled"`
     Uri     string `json:"uri"`
 }

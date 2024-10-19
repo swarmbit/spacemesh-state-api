@@ -7,7 +7,7 @@ import (
     "time"
 
     sTypes "github.com/spacemeshos/go-spacemesh/common/types"
-    "github.com/spacemeshos/go-spacemesh/nats"
+    syncTypes "github.com/swarmbit/spacemesh-state-api/sync/types"
     "github.com/swarmbit/spacemesh-state-api/pkg/transactionparser"
     transactionparsertypes "github.com/swarmbit/spacemesh-state-api/pkg/transactionparser/transaction"
     "github.com/swarmbit/spacemesh-state-api/types"
@@ -185,7 +185,7 @@ func createIndexes(client *mongo.Client) error {
     return nil
 }
 
-func (m *WriteDB) SaveLayer(layer *nats.LayerUpdate) error {
+func (m *WriteDB) SaveLayer(layer *syncTypes.LayerUpdate) error {
     // only store processed layers
     if layer.Status > 0 {
         layersColl := m.client.Database(database).Collection(layersCollection)
@@ -200,7 +200,7 @@ func (m *WriteDB) SaveLayer(layer *nats.LayerUpdate) error {
     return nil
 }
 
-func (m *WriteDB) SaveAtx(atx *nats.Atx) error {
+func (m *WriteDB) SaveAtx(atx *syncTypes.Atx) error {
     session, err := m.client.StartSession()
     defer session.EndSession(context.TODO())
 
@@ -322,7 +322,7 @@ func (m *WriteDB) SaveAtx(atx *nats.Atx) error {
 
 }
 
-func (m *WriteDB) SaveMalfeasance(malfeasance *nats.Malfeasance) error {
+func (m *WriteDB) SaveMalfeasance(malfeasance *syncTypes.Malfeasance) error {
     nodesColl := m.client.Database(database).Collection(nodesCollection)
     _, err := nodesColl.UpdateOne(
         context.TODO(),
@@ -338,7 +338,7 @@ func (m *WriteDB) SaveMalfeasance(malfeasance *nats.Malfeasance) error {
     return err
 }
 
-func (m *WriteDB) SaveTransactions(transaction *nats.Transaction, result bool) error {
+func (m *WriteDB) SaveTransactions(transaction *syncTypes.Transaction, result bool) error {
     session, err := m.client.StartSession()
     defer session.EndSession(context.TODO())
 
@@ -496,7 +496,7 @@ func (m *WriteDB) SaveTransactions(transaction *nats.Transaction, result bool) e
 
 }
 
-func (m *WriteDB) SaveReward(reward *nats.Reward) error {
+func (m *WriteDB) SaveReward(reward *syncTypes.Reward) error {
     session, err := m.client.StartSession()
     defer session.EndSession(context.TODO())
 
